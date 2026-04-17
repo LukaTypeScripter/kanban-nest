@@ -3,14 +3,15 @@ import { DrizzleAsyncProvider } from '../../../db/database/database.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../../schema';
 import { eq } from 'drizzle-orm';
+import { RefreshTokenType } from '../schemas/refresh-token.schema';
 
 @Injectable()
-export class RefreshTokens {
+export class RefreshTokensRepository {
   constructor(
     @Inject(DrizzleAsyncProvider) private db: NodePgDatabase<typeof schema>,
   ) {}
 
-  createRefreshToken(data: { userId: number; token: string; expiresAt: Date }) {
+  createRefreshToken(data: RefreshTokenType) {
     return this.db.insert(schema.refresh_tokens).values(data).returning();
   }
 

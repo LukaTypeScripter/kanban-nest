@@ -3,6 +3,7 @@ import { DrizzleAsyncProvider } from '../../db/database/database.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
 import * as schema from '../../schema';
+import { UsersType } from '../auth/schemas/users.schema';
 
 @Injectable()
 export class UsersRepository {
@@ -23,7 +24,7 @@ export class UsersRepository {
     });
   }
 
-  create(data: { email: string; name: string; avatar: string }) {
+  create(data: UsersType) {
     return this.db.insert(schema.users).values(data).returning();
   }
 }

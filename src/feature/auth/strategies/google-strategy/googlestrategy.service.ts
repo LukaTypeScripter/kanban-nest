@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, VerifyCallback } from 'passport-google-oauth20';
+import { Profile, Strategy, VerifyCallback } from 'passport-google-oauth20';
+import { GoogleProfileSchema } from '../../schemas/google-profile.schema';
 
 @Injectable()
-export class GooglestrategyService extends PassportStrategy(
-  Strategy,
-  'google',
-) {
+export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor() {
     super({
       clientID: process.env.GOOGLE_CLIENT_ID ?? '',
@@ -19,10 +17,13 @@ export class GooglestrategyService extends PassportStrategy(
   validate(
     accessToken: string,
     refreshToken: string,
-    profile: any,
+    profile: Profile,
     done: VerifyCallback,
   ): void {
     const { name, emails, photos } = profile;
+
+    if (!emails || !name || !photos)
+      return done(new Error('invalid profile'), false);
 
     const user = {
       email: emails[0].value,
@@ -31,6 +32,10 @@ export class GooglestrategyService extends PassportStrategy(
       picture: photos[0].value,
       accessToken,
     };
+
+    const result = GoogleProfileSchema.safeParse(user);
+    if (!result.success) return done(new Error('invalid profile'), false);
+
     done(null, user);
   }
 }
