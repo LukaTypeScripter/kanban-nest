@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DrizzleAsyncProvider } from '../../db/database/database.provider';
+import { DrizzleAsyncProvider } from '@db/database/database.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
-import * as schema from '../../schema';
-import { UsersType } from '../auth/schemas/users.schema';
+import * as schema from '@src/schema';
+import { UsersType } from '@feature/auth/schemas/users.schema';
 
 @Injectable()
 export class UsersRepository {

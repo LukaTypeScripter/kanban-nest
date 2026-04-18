@@ -11,6 +11,7 @@ import { AuthModule } from './feature/auth/auth.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+
     DatabaseModule,
     AuthModule,
   ],

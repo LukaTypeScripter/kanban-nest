@@ -20,6 +20,14 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@db/*": ["src/db/*"],
+      "@feature/*": ["src/feature/*"],
+      "@common/*": ["src/common/*"],
+      "@configs/*": ["src/configs/*"],
+      "@src/*": ["src/*"]
+    }
   }
 }

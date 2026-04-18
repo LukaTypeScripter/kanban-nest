@@ -6,10 +6,12 @@ import { GoogleStrategy } from './strategies/google-strategy/googlestrategy.serv
 import { RefreshTokensRepository } from './repositories/refresh-tokens.repository';
 import { UsersRepository } from '../users/users.repository';
 import { JwtModule } from '@nestjs/jwt';
-import { DatabaseModule } from '../../db/database/database.module';
+import { DatabaseModule } from '@db/database/database.module';
 import { ConfigService } from '@nestjs/config';
 import { LocalStrategy } from './strategies/local-strategy/local.strategy';
 import { PassportModule } from '@nestjs/passport';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { TokenCleanupTask } from './tasks/token-cleanup.task';
 
 @Module({
   imports: [
@@ -22,6 +24,14 @@ import { PassportModule } from '@nestjs/passport';
         signOptions: { expiresIn: '15m' },
       }),
     }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000,
+          limit: 10,
+        },
+      ],
+    }),
   ],
   controllers: [AuthController],
   providers: [
@@ -31,6 +41,7 @@ import { PassportModule } from '@nestjs/passport';
     RefreshTokensRepository,
     UsersRepository,
     LocalStrategy,
+    TokenCleanupTask,
   ],
 })
 export class AuthModule {}

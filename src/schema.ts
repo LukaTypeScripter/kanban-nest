@@ -1,4 +1,11 @@
-import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -10,11 +17,16 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const refresh_tokens = pgTable('refresh_tokens', {
-  id: serial('id').primaryKey(),
-  userId: serial('user_id')
-    .references(() => users.id)
-    .notNull(),
-  token: text('token').notNull(),
-  expiresAt: timestamp('expires_at').notNull(),
-});
+export const refresh_tokens = pgTable(
+  'refresh_tokens',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .references(() => users.id)
+      .notNull(),
+    token: text('token').notNull(),
+    jti: text('jti').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (t) => [uniqueIndex('refresh_tokens_jti_idx').on(t.jti)],
+);

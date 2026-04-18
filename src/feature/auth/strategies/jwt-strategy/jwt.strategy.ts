@@ -5,7 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import {
   JwtPayloadSchema,
   JwtPayloadType,
-} from '../../schemas/jwt-payload.schema';
+} from '@feature/auth/schemas/jwt-payload.schema';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -13,7 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') ?? 'backup',
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });
   }
 

@@ -13,6 +13,7 @@ import { AuthTokenType } from './schemas/auth-tokens.schema';
 import * as bcrypt from 'bcrypt';
 import { LoginType } from './schemas/login.schema';
 import { JwtPayloadType } from './schemas/jwt-payload.schema';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -41,16 +42,21 @@ export class AuthService {
     const payload = { sub: user.id, email: user.email };
 
     const accessToken = this.jwtService.sign(payload);
+    const jti = randomUUID();
 
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       expiresIn: '7d',
+      jwtid: jti,
     });
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
     await this.refreshTokensRepo.createRefreshToken({
       userId: user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: refreshToken,
+      token: hashedRefreshToken,
+      jti,
     });
 
     return { accessToken, refreshToken };
@@ -92,15 +98,21 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
+    const jti = randomUUID();
+
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       expiresIn: '7d',
+      jwtid: jti,
     });
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
     await this.refreshTokensRepo.createRefreshToken({
       userId: user.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: refreshToken,
+      token: hashedRefreshToken,
+      jti,
     });
 
     return { accessToken, refreshToken };
@@ -124,15 +136,21 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
+    const jti = randomUUID();
+
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       expiresIn: '7d',
+      jwtid: jti,
     });
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
     await this.refreshTokensRepo.createRefreshToken({
       userId: existing.id,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: refreshToken,
+      token: hashedRefreshToken,
+      jti,
     });
 
     return { accessToken, refreshToken };
@@ -149,30 +167,52 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const storedToken =
-      await this.refreshTokensRepo.findRefreshToken(oldRefreshToken);
+    const stored = await this.refreshTokensRepo.findByJti(jwtPayload.jti);
 
-    if (!storedToken || storedToken.expiresAt < new Date()) {
+    if (!stored || stored.expiresAt < new Date()) {
       throw new UnauthorizedException('Refresh token expired');
     }
 
-    await this.refreshTokensRepo.deleteRefreshToken(oldRefreshToken);
+    await this.refreshTokensRepo.deleteRefreshToken(stored.id);
 
     const payload = { sub: jwtPayload.sub, email: jwtPayload.email };
 
     const accessToken = this.jwtService.sign(payload);
 
+    const jti = randomUUID();
+
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       expiresIn: '7d',
+      jwtid: jti,
     });
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
     await this.refreshTokensRepo.createRefreshToken({
       userId: payload.sub,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: refreshToken,
+      token: hashedRefreshToken,
+      jti,
     });
 
     return { accessToken, refreshToken };
+  }
+
+  async logout(refreshToken: string) {
+    let decoded: JwtPayloadType;
+    try {
+      decoded = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const stored = await this.refreshTokensRepo.findByJti(decoded.jti);
+
+    if (stored) await this.refreshTokensRepo.deleteRefreshToken(stored.id);
+
+    return { message: 'Logged out successfully' };
   }
 }
