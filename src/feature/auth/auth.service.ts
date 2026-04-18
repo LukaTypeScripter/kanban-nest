@@ -12,7 +12,7 @@ import { RegisterType } from './schemas/register.schema';
 import { AuthTokenType } from './schemas/auth-tokens.schema';
 import * as bcrypt from 'bcrypt';
 import { LoginType } from './schemas/login.schema';
-import { NotFoundError } from 'rxjs';
+import { JwtPayloadType } from './schemas/jwt-payload.schema';
 
 @Injectable()
 export class AuthService {
@@ -131,6 +131,44 @@ export class AuthService {
 
     await this.refreshTokensRepo.createRefreshToken({
       userId: existing.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      token: refreshToken,
+    });
+
+    return { accessToken, refreshToken };
+  }
+
+  async refresh(oldRefreshToken: string): Promise<AuthTokenType> {
+    let jwtPayload: JwtPayloadType;
+
+    try {
+      jwtPayload = this.jwtService.verify(oldRefreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const storedToken =
+      await this.refreshTokensRepo.findRefreshToken(oldRefreshToken);
+
+    if (!storedToken || storedToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    await this.refreshTokensRepo.deleteRefreshToken(oldRefreshToken);
+
+    const payload = { sub: jwtPayload.sub, email: jwtPayload.email };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: '7d',
+    });
+
+    await this.refreshTokensRepo.createRefreshToken({
+      userId: payload.sub,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       token: refreshToken,
     });

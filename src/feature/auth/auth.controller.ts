@@ -36,4 +36,9 @@ export class AuthController {
   localLogin(@Body() req: Request & LoginType) {
     return this.authService.login(req);
   }
+
+  @Post('refresh')
+  refreshToken(@Body('refreshToken') refreshToken: string) {
+    return this.authService.refresh(refreshToken);
+  }
 }
