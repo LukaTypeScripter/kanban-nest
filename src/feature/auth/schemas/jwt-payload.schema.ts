@@ -1,8 +1,11 @@
 import z from 'zod';
 
-export const JwtPayloadSchema = z.object({
+export const AccessTokenPayloadSchema = z.object({
   sub: z.number(),
   email: z.string().email(),
+});
+
+export const JwtPayloadSchema = AccessTokenPayloadSchema.extend({
   jti: z.string(),
 });
 

@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy } from './jwt.strategy';
-import type { JwtPayloadType } from '@feature/auth/schemas/jwt-payload.schema';
 
 describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
@@ -25,11 +24,21 @@ describe('JwtStrategy', () => {
   });
 
   describe('validate', () => {
-    it('returns {id, email} for a valid payload', () => {
-      const payload: JwtPayloadType = {
+    it('returns {id, email} for a valid access token payload', () => {
+      const payload = { sub: 1, email: 'user@example.com' };
+
+      expect(strategy.validate(payload)).toEqual({
+        id: 1,
+        email: 'user@example.com',
+      });
+    });
+
+    it('ignores extra fields like jti/iat/exp', () => {
+      const payload = {
         sub: 1,
         email: 'user@example.com',
-        jti: 'jti-123',
+        iat: 1700000000,
+        exp: 1700000900,
       };
 
       expect(strategy.validate(payload)).toEqual({
@@ -39,32 +48,21 @@ describe('JwtStrategy', () => {
     });
 
     it('throws UnauthorizedException when sub is not a number', () => {
-      const payload = {
-        sub: 'not-a-number',
-        email: 'user@example.com',
-        jti: 'j',
-      } as unknown as JwtPayloadType;
-
-      expect(() => strategy.validate(payload)).toThrow(UnauthorizedException);
+      expect(() =>
+        strategy.validate({ sub: 'not-a-number', email: 'user@example.com' }),
+      ).toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when email is not a valid email', () => {
-      const payload = {
-        sub: 1,
-        email: 'not-email',
-        jti: 'j',
-      } as JwtPayloadType;
-
-      expect(() => strategy.validate(payload)).toThrow(UnauthorizedException);
+      expect(() =>
+        strategy.validate({ sub: 1, email: 'not-email' }),
+      ).toThrow(UnauthorizedException);
     });
 
-    it('throws UnauthorizedException when jti is missing', () => {
-      const payload = {
-        sub: 1,
-        email: 'user@example.com',
-      } as unknown as JwtPayloadType;
-
-      expect(() => strategy.validate(payload)).toThrow(UnauthorizedException);
+    it('throws UnauthorizedException when sub is missing', () => {
+      expect(() =>
+        strategy.validate({ email: 'user@example.com' }),
+      ).toThrow(UnauthorizedException);
     });
   });
 });

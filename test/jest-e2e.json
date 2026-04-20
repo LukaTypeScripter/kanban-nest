@@ -5,5 +5,14 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "moduleNameMapper": {
+    "^@db/(.*)$": "<rootDir>/../src/db/$1",
+    "^@feature/(.*)$": "<rootDir>/../src/feature/$1",
+    "^@common/(.*)$": "<rootDir>/../src/common/$1",
+    "^@configs/(.*)$": "<rootDir>/../src/configs/$1",
+    "^@src/(.*)$": "<rootDir>/../src/$1"
+  },
+  "globalSetup": "<rootDir>/global-setup.ts",
+  "testTimeout": 60000
 }

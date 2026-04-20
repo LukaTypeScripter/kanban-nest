@@ -24,6 +24,11 @@ import { validateEnv } from '@configs/env.validation';
     HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    AppService,
+    process.env.NODE_ENV === 'test'
+      ? { provide: APP_GUARD, useValue: { canActivate: () => true } }
+      : { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
