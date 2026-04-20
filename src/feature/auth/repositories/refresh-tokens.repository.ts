@@ -5,12 +5,16 @@ import * as schema from '@src/schema';
 import { eq, lt } from 'drizzle-orm';
 import { RefreshTokenType } from '../schemas/refresh-token.schema';
 import { Tx } from '@common/types/transaction.type';
+import { RunInTransactionUtility } from '@common/utility/run-in-transaction.utility';
 
 @Injectable()
 export class RefreshTokensRepository {
+  transaction: RunInTransactionUtility;
   constructor(
     @Inject(DrizzleAsyncProvider) private db: NodePgDatabase<typeof schema>,
-  ) {}
+  ) {
+    this.transaction = new RunInTransactionUtility(this.db);
+  }
 
   createRefreshToken(data: RefreshTokenType, tx?: Tx) {
     return (tx || this.db)
@@ -48,9 +52,5 @@ export class RefreshTokensRepository {
     return (tx || this.db)
       .delete(schema.refresh_tokens)
       .where(eq(schema.refresh_tokens.userId, userId));
-  }
-
-  runInTransaction<T>(cb: (tx: Tx) => Promise<T>) {
-    return this.db.transaction(cb);
   }
 }

@@ -11,11 +11,14 @@ import { ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { TokenCleanupTask } from './tasks/token-cleanup.task';
 import { PasswordStrengthService } from './password-strength.service';
+import { EmailVerificationRepository } from './repositories/email-verification.repository';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     DatabaseModule,
     PassportModule,
+    EmailModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -33,6 +36,7 @@ import { PasswordStrengthService } from './password-strength.service';
     UsersRepository,
     TokenCleanupTask,
     PasswordStrengthService,
+    EmailVerificationRepository,
   ],
 })
 export class AuthModule {}

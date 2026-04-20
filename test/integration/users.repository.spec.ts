@@ -23,6 +23,8 @@ describe('UsersRepository (integration)', () => {
     name: 'Alice',
     password: 'hashed-pw',
     avatar: null,
+    provider: 'local',
+    emailVerified: false,
   };
 
   describe('create', () => {

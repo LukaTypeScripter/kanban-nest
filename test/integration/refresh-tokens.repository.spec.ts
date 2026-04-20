@@ -25,6 +25,8 @@ describe('RefreshTokensRepository (integration)', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'stored-hash',
+        provider: 'local',
+        emailVerified: false,
       })
       .returning();
 
@@ -108,7 +110,7 @@ describe('RefreshTokensRepository (integration)', () => {
 
   describe('runInTransaction', () => {
     it('commits the transaction on success', async () => {
-      await repo.runInTransaction(async (tx) => {
+      await repo.transaction.runInTransaction(async (tx) => {
         await repo.createRefreshToken(makeToken(), tx);
       });
 
@@ -118,7 +120,7 @@ describe('RefreshTokensRepository (integration)', () => {
 
     it('rolls back the transaction when the callback throws', async () => {
       await expect(
-        repo.runInTransaction(async (tx) => {
+        repo.transaction.runInTransaction(async (tx) => {
           await repo.createRefreshToken(makeToken(), tx);
           throw new Error('rollback please');
         }),

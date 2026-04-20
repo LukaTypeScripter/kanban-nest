@@ -24,12 +24,13 @@ describe('JwtStrategy', () => {
   });
 
   describe('validate', () => {
-    it('returns {id, email} for a valid access token payload', () => {
-      const payload = { sub: 1, email: 'user@example.com' };
+    it('returns {id, email, emailVerified} for a valid access token payload', () => {
+      const payload = { sub: 1, email: 'user@example.com', emailVerified: true };
 
       expect(strategy.validate(payload)).toEqual({
         id: 1,
         email: 'user@example.com',
+        emailVerified: true,
       });
     });
 
@@ -37,6 +38,7 @@ describe('JwtStrategy', () => {
       const payload = {
         sub: 1,
         email: 'user@example.com',
+        emailVerified: false,
         iat: 1700000000,
         exp: 1700000900,
       };
@@ -44,25 +46,32 @@ describe('JwtStrategy', () => {
       expect(strategy.validate(payload)).toEqual({
         id: 1,
         email: 'user@example.com',
+        emailVerified: false,
       });
+    });
+
+    it('throws UnauthorizedException when emailVerified is missing', () => {
+      expect(() =>
+        strategy.validate({ sub: 1, email: 'user@example.com' }),
+      ).toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when sub is not a number', () => {
       expect(() =>
-        strategy.validate({ sub: 'not-a-number', email: 'user@example.com' }),
+        strategy.validate({ sub: 'not-a-number', email: 'user@example.com', emailVerified: true }),
       ).toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when email is not a valid email', () => {
-      expect(() => strategy.validate({ sub: 1, email: 'not-email' })).toThrow(
-        UnauthorizedException,
-      );
+      expect(() =>
+        strategy.validate({ sub: 1, email: 'not-email', emailVerified: true }),
+      ).toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when sub is missing', () => {
-      expect(() => strategy.validate({ email: 'user@example.com' })).toThrow(
-        UnauthorizedException,
-      );
+      expect(() =>
+        strategy.validate({ email: 'user@example.com', emailVerified: true }),
+      ).toThrow(UnauthorizedException);
     });
   });
 });

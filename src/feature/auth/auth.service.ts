@@ -1,6 +1,8 @@
 import { RefreshTokensRepository } from './repositories/refresh-tokens.repository';
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -14,10 +16,12 @@ import { AuthTokenType } from './schemas/auth-tokens.schema';
 import * as bcrypt from 'bcrypt';
 import { LoginType } from './schemas/login.schema';
 import { JwtPayloadType } from './schemas/jwt-payload.schema';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Tx } from '@common/types/transaction.type';
 import { BuildTokenType } from './schemas/build-token.schema';
 import { PasswordStrengthService } from './password-strength.service';
+import { EmailVerificationRepository } from './repositories/email-verification.repository';
+import { EmailService } from '@feature/email/email.service';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
@@ -30,6 +34,8 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private passwordStrength: PasswordStrengthService,
+    private emailVerificationRepo: EmailVerificationRepository,
+    private emailService: EmailService,
   ) {}
   private readonly logger = new Logger(AuthService.name);
 
@@ -43,15 +49,17 @@ export class AuthService {
         email,
         name: `${firstName} ${lastName}`,
         avatar: picture,
+        provider: 'google',
+        emailVerified: true,
       });
 
       user = created;
     }
 
-    return this.issueNewSession(user.id, user.email);
+    return this.issueNewSession(user.id, user.email, user.emailVerified);
   }
 
-  async register(dto: RegisterType): Promise<AuthTokenType> {
+  async register(dto: RegisterType): Promise<{ message: string }> {
     const { name, email, password } = dto;
 
     const existing = await this.usersRepo.findByEmail(email);
@@ -69,9 +77,28 @@ export class AuthService {
       name,
       email,
       password: hashedPassword,
+      provider: 'local',
+      emailVerified: false,
     });
 
-    return this.issueNewSession(user.id, user.email);
+    const rawToken = randomUUID();
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+
+    await this.emailVerificationRepo.createEmailVerification({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    });
+
+    await this.emailService
+      .sendVerificationEmail(email, rawToken)
+      .catch((err) => {
+        this.logger.error(
+          `Failed to send verification email to ${email}: ${err.message}`,
+        );
+      });
+
+    return { message: 'Check your email to verify your account' };
   }
 
   async login(dto: LoginType): Promise<AuthTokenType> {
@@ -89,15 +116,25 @@ export class AuthService {
 
     if (!isMatch) throw new UnauthorizedException('Invalid credentials');
 
-    return this.issueNewSession(existing.id, existing.email);
+    if (!existing.emailVerified)
+      throw new ForbiddenException(
+        'Please verify your email before logging in',
+      );
+
+    return this.issueNewSession(
+      existing.id,
+      existing.email,
+      existing.emailVerified,
+    );
   }
 
   private async issueNewSession(
     userId: number,
     email: string,
+    emailVerified: boolean,
   ): Promise<AuthTokenType> {
     const { accessToken, refreshToken, hashedRefreshToken, jti } =
-      await this.buildTokens(userId, email);
+      await this.buildTokens(userId, email, emailVerified);
 
     await this.persistRefreshToken(userId, hashedRefreshToken, jti);
 
@@ -133,11 +170,15 @@ export class AuthService {
     if (!isMatch) throw new UnauthorizedException('Invalid refresh token');
 
     const { accessToken, refreshToken, hashedRefreshToken, jti } =
-      await this.buildTokens(jwtPayload.sub, jwtPayload.email);
+      await this.buildTokens(
+        jwtPayload.sub,
+        jwtPayload.email,
+        jwtPayload.emailVerified,
+      );
 
     let reused = false;
 
-    await this.refreshTokensRepo.runInTransaction(async (tx) => {
+    await this.refreshTokensRepo.transaction.runInTransaction(async (tx) => {
       const deleted = await this.refreshTokensRepo.deleteRefreshToken(
         stored.id,
         tx,
@@ -199,8 +240,9 @@ export class AuthService {
   private async buildTokens(
     userId: number,
     email: string,
+    emailVerified: boolean,
   ): Promise<BuildTokenType> {
-    const payload = { sub: userId, email };
+    const payload = { sub: userId, email, emailVerified };
     const jti = randomUUID();
 
     const accessToken = this.jwtService.sign(payload);
@@ -231,5 +273,70 @@ export class AuthService {
       },
       tx,
     );
+  }
+
+  async verifyEmail(token: string): Promise<AuthTokenType> {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+
+    const record = await this.emailVerificationRepo.findByTokenHash(tokenHash);
+
+    if (!record) throw new BadRequestException('Invalid or expired token');
+
+    if (record.expiresAt < new Date())
+      throw new BadRequestException('Invalid or expired token');
+
+    const user = await this.usersRepo.findById(record.userId);
+
+    if (!user) throw new BadRequestException('User not found');
+
+    await this.usersRepo.transaction.runInTransaction(async (tx) => {
+      await this.usersRepo.update(record.userId, { emailVerified: true }, tx);
+      await this.emailVerificationRepo.deleteById(record.id, tx);
+    });
+
+    return this.issueNewSession(user.id, user.email, true);
+  }
+
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const user = await this.usersRepo.findByEmail(email);
+
+    if (!user || user.emailVerified) {
+      return {
+        message:
+          'If your email is pending verification, a new link has been sent',
+      };
+    }
+    let rawToken: string;
+
+    await this.emailVerificationRepo.transaction.runInTransaction(
+      async (tx) => {
+        await this.emailVerificationRepo.deleteByUserId(user.id, tx);
+
+        rawToken = randomUUID();
+        const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+
+        await this.emailVerificationRepo.createEmailVerification(
+          {
+            userId: user.id,
+            tokenHash,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          },
+          tx,
+        );
+      },
+    );
+
+    await this.emailService
+      .sendVerificationEmail(email, rawToken!)
+      .catch((err) => {
+        this.logger.error(
+          `Failed to send verification email to ${email}: ${err.message}`,
+        );
+      });
+
+    return {
+      message:
+        'If your email is pending verification, a new link has been sent',
+    };
   }
 }

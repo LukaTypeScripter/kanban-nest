@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import type { GoogleRequest } from './schemas/google-request.schema';
@@ -11,6 +19,14 @@ import {
   RefreshTokenBodySchema,
   type RefreshTokenBodyType,
 } from './schemas/refresh-token-body.schema';
+import {
+  VerifyEmailSchema,
+  type VerifyEmailType,
+} from './schemas/verify-email.schema';
+import {
+  ResendVerificationSchema,
+  type ResendVerificationType,
+} from './schemas/resend-verification.schema';
 import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
@@ -45,6 +61,27 @@ export class AuthController {
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   localLogin(@Body(new ZodValidationPipe(LoginSchema)) dto: LoginType) {
     return this.authService.login(dto);
+  }
+
+  // @Post('verify-email')
+  // verifyEmail(
+  //   @Body(new ZodValidationPipe(VerifyEmailSchema)) dto: VerifyEmailType,
+  // ) {
+  //   return this.authService.verifyEmail(dto.token);
+  // }
+
+  @Get('verify-email')
+  getVerifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @Throttle({ default: { ttl: 60000, limit: 2 } })
+  resendVerification(
+    @Body(new ZodValidationPipe(ResendVerificationSchema))
+    dto: ResendVerificationType,
+  ) {
+    return this.authService.resendVerification(dto.email);
   }
 
   @Post('refresh')

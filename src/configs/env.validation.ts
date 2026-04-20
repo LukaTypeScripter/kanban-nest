@@ -22,6 +22,13 @@ export const EnvSchema = z.object({
   CORS_ORIGIN: z.string().default('*'),
 
   PASSWORD_HIBP_CHECK_ENABLED: z.enum(['true', 'false']).default('true'),
+
+  SMTP_HOST: z.string().min(1, 'SMTP_HOST is required'),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().min(1, 'SMTP_USER is required'),
+  SMTP_PASS: z.string().min(1, 'SMTP_PASS is required'),
+  SMTP_FROM: z.string().min(1, 'SMTP_FROM is required'),
+  APP_URL: z.string().url('APP_URL must be a valid URL'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -35,7 +35,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     };
 
     const result = GoogleProfileSchema.safeParse(user);
+
     if (!result.success) return done(new Error('invalid profile'), false);
+
+    if (profile.emails && profile.emails[0].verified === true)
+      return done(new Error('email not verified'), false);
 
     done(null, user);
   }

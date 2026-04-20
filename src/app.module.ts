@@ -8,6 +8,7 @@ import { HealthModule } from '@feature/health/health.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core/constants';
 import { validateEnv } from '@configs/env.validation';
+import { EmailModule } from '@feature/email/email.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { validateEnv } from '@configs/env.validation';
     DatabaseModule,
     AuthModule,
     HealthModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

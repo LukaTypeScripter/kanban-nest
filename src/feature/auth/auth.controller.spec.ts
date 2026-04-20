@@ -66,7 +66,7 @@ describe('AuthController', () => {
   describe('localRegister', () => {
     it('delegates the dto to authService.register', async () => {
       const dto = { email: 'a@b.c', password: 'pw', name: 'N' };
-      const tokens = { accessToken: 'a', refreshToken: 'r' };
+      const tokens = { message: 'Check your email to verify your account' };
       authService.register.mockResolvedValue(tokens);
 
       const result = await controller.localRegister(dto);
