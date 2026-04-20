@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { UsersRepository } from '../users/users.repository';
 import { RefreshTokensRepository } from './repositories/refresh-tokens.repository';
 import type { GoogleRequest } from './schemas/google-request.schema';
+import { PasswordStrengthService } from './password-strength.service';
 
 jest.mock('bcrypt');
 
@@ -72,6 +73,10 @@ describe('AuthService', () => {
         { provide: RefreshTokensRepository, useValue: refreshTokensRepo },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
+        {
+          provide: PasswordStrengthService,
+          useValue: { validate: jest.fn().mockResolvedValue(undefined) },
+        },
       ],
     }).compile();
 

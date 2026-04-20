@@ -20,6 +20,8 @@ export const EnvSchema = z.object({
     .url('GOOGLE_CALLBACK_URL must be a valid URL'),
 
   CORS_ORIGIN: z.string().default('*'),
+
+  PASSWORD_HIBP_CHECK_ENABLED: z.enum(['true', 'false']).default('true'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

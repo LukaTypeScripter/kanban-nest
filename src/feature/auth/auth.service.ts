@@ -17,6 +17,7 @@ import { JwtPayloadType } from './schemas/jwt-payload.schema';
 import { randomUUID } from 'crypto';
 import { Tx } from '@common/types/transaction.type';
 import { BuildTokenType } from './schemas/build-token.schema';
+import { PasswordStrengthService } from './password-strength.service';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
@@ -28,6 +29,7 @@ export class AuthService {
     private refreshTokensRepo: RefreshTokensRepository,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private passwordStrength: PasswordStrengthService,
   ) {}
   private readonly logger = new Logger(AuthService.name);
 
@@ -58,6 +60,8 @@ export class AuthService {
       throw new ConflictException(
         `Unable to complete registration. If you already have an account, sign in instead.`,
       );
+
+    await this.passwordStrength.validate(password, { email, name });
 
     const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 

@@ -24,4 +24,5 @@ export default async function globalSetup(): Promise<void> {
   process.env.GOOGLE_CALLBACK_URL =
     'http://localhost:3000/auth/google/callback';
   process.env.CORS_ORIGIN = '*';
+  process.env.PASSWORD_HIBP_CHECK_ENABLED = 'false';
 }

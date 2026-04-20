@@ -54,15 +54,15 @@ describe('JwtStrategy', () => {
     });
 
     it('throws UnauthorizedException when email is not a valid email', () => {
-      expect(() =>
-        strategy.validate({ sub: 1, email: 'not-email' }),
-      ).toThrow(UnauthorizedException);
+      expect(() => strategy.validate({ sub: 1, email: 'not-email' })).toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('throws UnauthorizedException when sub is missing', () => {
-      expect(() =>
-        strategy.validate({ email: 'user@example.com' }),
-      ).toThrow(UnauthorizedException);
+      expect(() => strategy.validate({ email: 'user@example.com' })).toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });

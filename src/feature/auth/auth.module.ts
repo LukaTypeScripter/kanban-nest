@@ -10,6 +10,7 @@ import { DatabaseModule } from '@db/database/database.module';
 import { ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { TokenCleanupTask } from './tasks/token-cleanup.task';
+import { PasswordStrengthService } from './password-strength.service';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { TokenCleanupTask } from './tasks/token-cleanup.task';
     RefreshTokensRepository,
     UsersRepository,
     TokenCleanupTask,
+    PasswordStrengthService,
   ],
 })
 export class AuthModule {}
