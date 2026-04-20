@@ -54,7 +54,9 @@ export class AuthService {
     const existing = await this.usersRepo.findByEmail(email);
 
     if (existing)
-      throw new ConflictException(`Registration failed, email exists!`);
+      throw new ConflictException(
+        `Unable to complete registration. If you already have an account, sign in instead.`,
+      );
 
     const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
