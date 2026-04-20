@@ -13,19 +13,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const res = exception.getResponse();
+      const body =
+        typeof res === 'string'
+          ? { message: res, statusCode: status }
+          : { statusCode: status, ...(res as Record<string, unknown>) };
 
-    const message =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Internal server error';
+      response.status(status).json({
+        ...body,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
 
-    response.status(status).json({
-      message,
-      statusCode: status,
+    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      message: 'Internal server error',
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       timestamp: new Date().toISOString(),
     });
   }

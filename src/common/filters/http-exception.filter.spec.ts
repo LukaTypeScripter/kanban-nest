@@ -22,7 +22,7 @@ describe('GlobalExceptionFilter', () => {
     } as unknown as ArgumentsHost;
   });
 
-  it('maps an HttpException to its status + response body', () => {
+  it('flattens an HttpException object response into the top-level body', () => {
     const err = new BadRequestException('Bad stuff');
 
     filter.catch(err, host);
@@ -31,7 +31,22 @@ describe('GlobalExceptionFilter', () => {
     expect(jsonMock).toHaveBeenCalledWith(
       expect.objectContaining({
         statusCode: HttpStatus.BAD_REQUEST,
-        message: err.getResponse(),
+        message: 'Bad stuff',
+        error: 'Bad Request',
+      }),
+    );
+  });
+
+  it('maps a string-response HttpException to a message field', () => {
+    const err = new BadRequestException();
+    jest.spyOn(err, 'getResponse').mockReturnValue('raw string error');
+
+    filter.catch(err, host);
+
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: 'raw string error',
       }),
     );
   });
