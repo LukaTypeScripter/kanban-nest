@@ -16,6 +16,7 @@ import { LoginType } from './schemas/login.schema';
 import { JwtPayloadType } from './schemas/jwt-payload.schema';
 import { randomUUID } from 'crypto';
 import { Tx } from '@common/types/transaction.type';
+import { BuildTokenType } from './schemas/build-token.schema';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
@@ -30,7 +31,7 @@ export class AuthService {
   ) {}
   private readonly logger = new Logger(AuthService.name);
 
-  async googleLogin(req: GoogleRequest) {
+  async googleLogin(req: GoogleRequest): Promise<AuthTokenType> {
     const { email, firstName, lastName, picture } = req.user;
 
     let user = await this.usersRepo.findByEmail(email);
@@ -161,7 +162,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async logout(refreshToken: string) {
+  async logout(refreshToken: string): Promise<{ message: string }> {
     let decoded: JwtPayloadType;
     try {
       decoded = this.jwtService.verify(refreshToken, {
@@ -190,7 +191,10 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  private async buildTokens(userId: number, email: string) {
+  private async buildTokens(
+    userId: number,
+    email: string,
+  ): Promise<BuildTokenType> {
     const payload = { sub: userId, email };
     const jti = randomUUID();
 
