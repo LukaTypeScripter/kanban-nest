@@ -8,7 +8,6 @@ import { UsersRepository } from '../users/users.repository';
 import { JwtModule } from '@nestjs/jwt';
 import { DatabaseModule } from '@db/database/database.module';
 import { ConfigService } from '@nestjs/config';
-import { LocalStrategy } from './strategies/local-strategy/local.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TokenCleanupTask } from './tasks/token-cleanup.task';
@@ -40,7 +39,6 @@ import { TokenCleanupTask } from './tasks/token-cleanup.task';
     GoogleStrategy,
     RefreshTokensRepository,
     UsersRepository,
-    LocalStrategy,
     TokenCleanupTask,
   ],
 })

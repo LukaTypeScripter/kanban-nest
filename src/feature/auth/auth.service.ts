@@ -62,26 +62,10 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async validateUser(email: string, pass: string) {
-    let user = await this.usersRepo.findByEmail(email);
-
-    if (!user || !user.password) return null;
-
-    const isMatch = await bcrypt.compare(pass, user.password);
-
-    if (isMatch) {
-      const { password, ...result } = user;
-
-      return result;
-    }
-
-    return null;
-  }
-
   async register(dto: RegisterType): Promise<AuthTokenType> {
     const { name, email, password } = dto;
 
-    let existing = await this.usersRepo.findByEmail(email);
+    const existing = await this.usersRepo.findByEmail(email);
 
     if (existing)
       throw new ConflictException(`Email ${email} is already registered`);
@@ -121,7 +105,7 @@ export class AuthService {
   async login(dto: LoginType): Promise<AuthTokenType> {
     const { email, password } = dto;
 
-    let existing = await this.usersRepo.findByEmail(email);
+    const existing = await this.usersRepo.findByEmail(email);
 
     if (!existing) throw new UnauthorizedException('Invalid credentials');
 
@@ -163,17 +147,23 @@ export class AuthService {
       jwtPayload = this.jwtService.verify(oldRefreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     const stored = await this.refreshTokensRepo.findByJti(jwtPayload.jti);
 
-    if (!stored || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException('Refresh token expired');
+    if (!stored) {
+      await this.refreshTokensRepo.deleteAllByUserId(jwtPayload.sub);
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
-    await this.refreshTokensRepo.deleteRefreshToken(stored.id);
+    if (stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+    const isMatch = await bcrypt.compare(oldRefreshToken, stored.token);
+
+    if (!isMatch) throw new UnauthorizedException('Invalid refresh token');
 
     const payload = { sub: jwtPayload.sub, email: jwtPayload.email };
 
@@ -189,12 +179,34 @@ export class AuthService {
 
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
-    await this.refreshTokensRepo.createRefreshToken({
-      userId: payload.sub,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: hashedRefreshToken,
-      jti,
+    let reused = false;
+
+    await this.refreshTokensRepo.runInTransaction(async (tx) => {
+      const deleted = await this.refreshTokensRepo.deleteRefreshToken(
+        stored.id,
+        tx,
+      );
+
+      if (deleted.length === 0) {
+        reused = true;
+        return;
+      }
+
+      await this.refreshTokensRepo.createRefreshToken(
+        {
+          userId: payload.sub,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          token: hashedRefreshToken,
+          jti,
+        },
+        tx,
+      );
     });
+
+    if (reused) {
+      await this.refreshTokensRepo.deleteAllByUserId(payload.sub);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
 
     return { accessToken, refreshToken };
   }
@@ -205,13 +217,22 @@ export class AuthService {
       decoded = this.jwtService.verify(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     const stored = await this.refreshTokensRepo.findByJti(decoded.jti);
 
-    if (stored) await this.refreshTokensRepo.deleteRefreshToken(stored.id);
+    if (!stored) {
+      await this.refreshTokensRepo.deleteAllByUserId(decoded.sub);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const isMatch = await bcrypt.compare(refreshToken, stored.token);
+
+    if (!isMatch) throw new UnauthorizedException('Invalid refresh token');
+
+    await this.refreshTokensRepo.deleteRefreshToken(stored.id);
 
     return { message: 'Logged out successfully' };
   }
