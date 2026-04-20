@@ -110,6 +110,9 @@ export class AuthService {
     const stored = await this.refreshTokensRepo.findByJti(jwtPayload.jti);
 
     if (!stored) {
+      this.logger.warn(
+        `Refresh token reuse detected for user ${jwtPayload.sub}`,
+      );
       await this.refreshTokensRepo.deleteAllByUserId(jwtPayload.sub);
       throw new UnauthorizedException('Invalid refresh token');
     }

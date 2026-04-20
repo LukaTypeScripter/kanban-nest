@@ -15,10 +15,7 @@ import { APP_GUARD } from '@nestjs/core/constants';
       envFilePath: '.env',
     }),
     ThrottlerModule.forRoot({
-      throttlers: [
-        { name: 'default', ttl: 60000, limit: 60 },
-        { name: 'strict', ttl: 60000, limit: 5 },
-      ],
+      throttlers: [{ name: 'default', ttl: 60000, limit: 60 }],
     }),
     DatabaseModule,
     AuthModule,
