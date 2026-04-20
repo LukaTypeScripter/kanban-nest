@@ -81,10 +81,11 @@ export class AuthService {
 
     if (!existing) throw new UnauthorizedException('Invalid credentials');
 
-    if (!existing.password)
-      throw new UnauthorizedException('Invalid credentials');
-
-    const isMatch = await bcrypt.compare(password, existing.password);
+    const isMatch = await bcrypt.compare(
+      password,
+      existing.password ??
+        '$2b$12$invalid.hash.to.keep.timing.stable.aaaaaaaaaaaaaaaaaaaa',
+    );
 
     if (!isMatch) throw new UnauthorizedException('Invalid credentials');
 
