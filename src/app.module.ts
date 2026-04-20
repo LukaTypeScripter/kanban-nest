@@ -7,12 +7,14 @@ import { AuthModule } from './feature/auth/auth.module';
 import { HealthModule } from '@feature/health/health.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core/constants';
+import { validateEnv } from '@configs/env.validation';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnv,
     }),
     ThrottlerModule.forRoot({
       throttlers: [{ name: 'default', ttl: 60000, limit: 60 }],

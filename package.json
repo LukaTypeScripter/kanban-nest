@@ -36,6 +36,7 @@
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "helmet": "^8.1.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -84,6 +85,13 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@db/(.*)$": "<rootDir>/db/$1",
+      "^@feature/(.*)$": "<rootDir>/feature/$1",
+      "^@common/(.*)$": "<rootDir>/common/$1",
+      "^@configs/(.*)$": "<rootDir>/configs/$1",
+      "^@src/(.*)$": "<rootDir>/$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
