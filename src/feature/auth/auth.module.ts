@@ -9,7 +9,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { DatabaseModule } from '@db/database/database.module';
 import { ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { TokenCleanupTask } from './tasks/token-cleanup.task';
 
 @Module({
@@ -22,14 +21,6 @@ import { TokenCleanupTask } from './tasks/token-cleanup.task';
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: { expiresIn: '15m' },
       }),
-    }),
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: 60000,
-          limit: 10,
-        },
-      ],
     }),
   ],
   controllers: [AuthController],

@@ -2,6 +2,7 @@ import { RefreshTokensRepository } from './repositories/refresh-tokens.repositor
 import {
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { UsersRepository } from '../users/users.repository';
@@ -14,6 +15,10 @@ import * as bcrypt from 'bcrypt';
 import { LoginType } from './schemas/login.schema';
 import { JwtPayloadType } from './schemas/jwt-payload.schema';
 import { randomUUID } from 'crypto';
+import { Tx } from '@common/types/transaction.type';
+
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const BCRYPT_ROUNDS = 12;
 
 @Injectable()
 export class AuthService {
@@ -23,6 +28,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
+  private readonly logger = new Logger(AuthService.name);
 
   async googleLogin(req: GoogleRequest) {
     const { email, firstName, lastName, picture } = req.user;
@@ -39,27 +45,7 @@ export class AuthService {
       user = created;
     }
 
-    const payload = { sub: user.id, email: user.email };
-
-    const accessToken = this.jwtService.sign(payload);
-    const jti = randomUUID();
-
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: '7d',
-      jwtid: jti,
-    });
-
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-
-    await this.refreshTokensRepo.createRefreshToken({
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: hashedRefreshToken,
-      jti,
-    });
-
-    return { accessToken, refreshToken };
+    return this.issueNewSession(user.id, user.email);
   }
 
   async register(dto: RegisterType): Promise<AuthTokenType> {
@@ -70,7 +56,7 @@ export class AuthService {
     if (existing)
       throw new ConflictException(`Email ${email} is already registered`);
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const [user] = await this.usersRepo.create({
       name,
@@ -78,28 +64,7 @@ export class AuthService {
       password: hashedPassword,
     });
 
-    const payload = { sub: user.id, email: user.email };
-
-    const accessToken = this.jwtService.sign(payload);
-
-    const jti = randomUUID();
-
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: '7d',
-      jwtid: jti,
-    });
-
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-
-    await this.refreshTokensRepo.createRefreshToken({
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: hashedRefreshToken,
-      jti,
-    });
-
-    return { accessToken, refreshToken };
+    return this.issueNewSession(user.id, user.email);
   }
 
   async login(dto: LoginType): Promise<AuthTokenType> {
@@ -116,26 +81,17 @@ export class AuthService {
 
     if (!isMatch) throw new UnauthorizedException('Invalid credentials');
 
-    const payload = { sub: existing.id, email: existing.email };
+    return this.issueNewSession(existing.id, existing.email);
+  }
 
-    const accessToken = this.jwtService.sign(payload);
+  private async issueNewSession(
+    userId: number,
+    email: string,
+  ): Promise<AuthTokenType> {
+    const { accessToken, refreshToken, hashedRefreshToken, jti } =
+      await this.buildTokens(userId, email);
 
-    const jti = randomUUID();
-
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: '7d',
-      jwtid: jti,
-    });
-
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-
-    await this.refreshTokensRepo.createRefreshToken({
-      userId: existing.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      token: hashedRefreshToken,
-      jti,
-    });
+    await this.persistRefreshToken(userId, hashedRefreshToken, jti);
 
     return { accessToken, refreshToken };
   }
@@ -145,7 +101,7 @@ export class AuthService {
 
     try {
       jwtPayload = this.jwtService.verify(oldRefreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
@@ -165,19 +121,8 @@ export class AuthService {
 
     if (!isMatch) throw new UnauthorizedException('Invalid refresh token');
 
-    const payload = { sub: jwtPayload.sub, email: jwtPayload.email };
-
-    const accessToken = this.jwtService.sign(payload);
-
-    const jti = randomUUID();
-
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: '7d',
-      jwtid: jti,
-    });
-
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const { accessToken, refreshToken, hashedRefreshToken, jti } =
+      await this.buildTokens(jwtPayload.sub, jwtPayload.email);
 
     let reused = false;
 
@@ -192,19 +137,19 @@ export class AuthService {
         return;
       }
 
-      await this.refreshTokensRepo.createRefreshToken(
-        {
-          userId: payload.sub,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          token: hashedRefreshToken,
-          jti,
-        },
+      await this.persistRefreshToken(
+        jwtPayload.sub,
+        hashedRefreshToken,
+        jti,
         tx,
       );
     });
 
     if (reused) {
-      await this.refreshTokensRepo.deleteAllByUserId(payload.sub);
+      this.logger.warn(
+        `Refresh token reuse detected for user ${jwtPayload.sub}`,
+      );
+      await this.refreshTokensRepo.deleteAllByUserId(jwtPayload.sub);
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -215,7 +160,7 @@ export class AuthService {
     let decoded: JwtPayloadType;
     try {
       decoded = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
@@ -224,6 +169,9 @@ export class AuthService {
     const stored = await this.refreshTokensRepo.findByJti(decoded.jti);
 
     if (!stored) {
+      this.logger.warn(
+        `Invalid refresh token reuse detected for user ${decoded.sub} during logout`,
+      );
       await this.refreshTokensRepo.deleteAllByUserId(decoded.sub);
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -235,5 +183,39 @@ export class AuthService {
     await this.refreshTokensRepo.deleteRefreshToken(stored.id);
 
     return { message: 'Logged out successfully' };
+  }
+
+  private async buildTokens(userId: number, email: string) {
+    const payload = { sub: userId, email };
+    const jti = randomUUID();
+
+    const accessToken = this.jwtService.sign(payload);
+
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      expiresIn: '7d',
+      jwtid: jti,
+    });
+
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, BCRYPT_ROUNDS);
+
+    return { accessToken, refreshToken, hashedRefreshToken, jti };
+  }
+
+  private persistRefreshToken(
+    userId: number,
+    hashedRefreshToken: string,
+    jti: string,
+    tx?: Tx,
+  ) {
+    return this.refreshTokensRepo.createRefreshToken(
+      {
+        userId,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        token: hashedRefreshToken,
+        jti,
+      },
+      tx,
+    );
   }
 }

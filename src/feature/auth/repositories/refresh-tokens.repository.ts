@@ -12,10 +12,7 @@ export class RefreshTokensRepository {
     @Inject(DrizzleAsyncProvider) private db: NodePgDatabase<typeof schema>,
   ) {}
 
-  createRefreshToken(
-    data: RefreshTokenType,
-    tx?: NodePgDatabase<typeof schema>,
-  ) {
+  createRefreshToken(data: RefreshTokenType, tx?: Tx) {
     return (tx || this.db)
       .insert(schema.refresh_tokens)
       .values(data)

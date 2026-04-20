@@ -1,6 +1,5 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import type { GoogleRequest } from './schemas/google-request.schema';
 import type { JwtPayloadType } from './schemas/jwt-payload.schema';
@@ -12,9 +11,9 @@ import {
   RefreshTokenBodySchema,
   type RefreshTokenBodyType,
 } from './schemas/refresh-token-body.schema';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
-@UseGuards(ThrottlerGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -35,6 +34,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   localRegister(
     @Body(new ZodValidationPipe(RegisterSchema)) dto: RegisterType,
   ) {
@@ -42,6 +42,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   localLogin(@Body(new ZodValidationPipe(LoginSchema)) dto: LoginType) {
     return this.authService.login(dto);
   }
@@ -55,6 +56,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   logout(
     @Body(new ZodValidationPipe(RefreshTokenBodySchema))
     dto: RefreshTokenBodyType,
