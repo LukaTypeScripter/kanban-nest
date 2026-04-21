@@ -1,7 +1,6 @@
 import { RefreshTokensRepository } from './repositories/refresh-tokens.repository';
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -16,7 +15,7 @@ import { AuthTokenType } from './schemas/auth-tokens.schema';
 import * as bcrypt from 'bcrypt';
 import { LoginType } from './schemas/login.schema';
 import { JwtPayloadType } from './schemas/jwt-payload.schema';
-import { createHash, randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { Tx } from '@common/types/transaction.type';
 import { BuildTokenType } from './schemas/build-token.schema';
 import { PasswordStrengthService } from './password-strength.service';
@@ -24,7 +23,14 @@ import { EmailVerificationRepository } from './repositories/email-verification.r
 import { EmailService } from '@feature/email/email.service';
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const VERIFICATION_TOKEN_TTL_MS = 15 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
+
+function createVerificationToken(): { rawToken: string; tokenHash: string } {
+  const rawToken = randomBytes(32).toString('base64url');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  return { rawToken, tokenHash };
+}
 
 @Injectable()
 export class AuthService {
@@ -61,13 +67,13 @@ export class AuthService {
 
   async register(dto: RegisterType): Promise<{ message: string }> {
     const { name, email, password } = dto;
+    const successMessage = {
+      message: 'Check your email to verify your account',
+    };
 
     const existing = await this.usersRepo.findByEmail(email);
 
-    if (existing)
-      throw new ConflictException(
-        `Unable to complete registration. If you already have an account, sign in instead.`,
-      );
+    if (existing) return successMessage;
 
     await this.passwordStrength.validate(password, { email, name });
 
@@ -81,13 +87,12 @@ export class AuthService {
       emailVerified: false,
     });
 
-    const rawToken = randomUUID();
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const { rawToken, tokenHash } = createVerificationToken();
 
     await this.emailVerificationRepo.createEmailVerification({
       userId: user.id,
       tokenHash,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
     });
 
     await this.emailService
@@ -98,7 +103,7 @@ export class AuthService {
         );
       });
 
-    return { message: 'Check your email to verify your account' };
+    return successMessage;
   }
 
   async login(dto: LoginType): Promise<AuthTokenType> {
@@ -300,43 +305,41 @@ export class AuthService {
   async resendVerification(email: string): Promise<{ message: string }> {
     const user = await this.usersRepo.findByEmail(email);
 
-    if (!user || user.emailVerified) {
-      return {
-        message:
-          'If your email is pending verification, a new link has been sent',
-      };
-    }
-    let rawToken: string;
+    const successMessage = {
+      message:
+        'If your email is pending verification, a new link has been sent',
+    };
 
-    await this.emailVerificationRepo.transaction.runInTransaction(
-      async (tx) => {
-        await this.emailVerificationRepo.deleteByUserId(user.id, tx);
+    if (!user || user.emailVerified) return successMessage;
 
-        rawToken = randomUUID();
-        const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const rawToken =
+      await this.emailVerificationRepo.transaction.runInTransaction(
+        async (tx) => {
+          await this.emailVerificationRepo.deleteByUserId(user.id, tx);
 
-        await this.emailVerificationRepo.createEmailVerification(
-          {
-            userId: user.id,
-            tokenHash,
-            expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-          },
-          tx,
-        );
-      },
-    );
+          const { rawToken, tokenHash } = createVerificationToken();
+
+          await this.emailVerificationRepo.createEmailVerification(
+            {
+              userId: user.id,
+              tokenHash,
+              expiresAt: new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS),
+            },
+            tx,
+          );
+
+          return rawToken;
+        },
+      );
 
     await this.emailService
-      .sendVerificationEmail(email, rawToken!)
+      .sendVerificationEmail(email, rawToken)
       .catch((err: Error) => {
         this.logger.error(
           `Failed to send verification email to ${email}: ${err.message}`,
         );
       });
 
-    return {
-      message:
-        'If your email is pending verification, a new link has been sent',
-    };
+    return successMessage;
   }
 }

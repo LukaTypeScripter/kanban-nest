@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import {
-  ConflictException,
   ForbiddenException,
   Logger,
   UnauthorizedException,
@@ -202,9 +201,19 @@ describe('AuthService', () => {
   describe('register', () => {
     const dto = { email: 'new@example.com', password: 'pw', name: 'New' };
 
-    it('throws ConflictException when email is already taken', async () => {
+    it('returns the generic success message without creating a user or sending email when the address is already registered', async () => {
       usersRepo.findByEmail.mockResolvedValue(userFixture as never);
-      await expect(service.register(dto)).rejects.toThrow(ConflictException);
+
+      const result = await service.register(dto);
+
+      expect(result).toEqual({
+        message: 'Check your email to verify your account',
+      });
+      expect(usersRepo.create).not.toHaveBeenCalled();
+      expect(
+        emailVerificationRepo.createEmailVerification,
+      ).not.toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
 
     it('creates user, stores verification token, sends email, returns message', async () => {

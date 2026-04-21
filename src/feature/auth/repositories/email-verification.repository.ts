@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleAsyncProvider } from '@db/database/database.provider';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '@src/schema';
-import { eq } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import { Tx } from '@common/types/transaction.type';
 import { EmailVerificationType } from '../schemas/email-verification.schema';
 import { RunInTransactionUtility } from '@common/utility/run-in-transaction.utility';
@@ -41,5 +41,11 @@ export class EmailVerificationRepository {
       .delete(schema.email_verifications)
       .where(eq(schema.email_verifications.userId, userId))
       .returning({ id: schema.email_verifications.id });
+  }
+
+  deleteExpired(tx?: Tx) {
+    return (tx || this.db)
+      .delete(schema.email_verifications)
+      .where(lt(schema.email_verifications.expiresAt, new Date()));
   }
 }

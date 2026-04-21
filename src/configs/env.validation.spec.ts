@@ -67,4 +67,15 @@ describe('validateEnv', () => {
     });
     expect(env.CORS_ORIGIN).toBe('http://localhost:5173');
   });
+
+  it('throws when JWT_SECRET and JWT_REFRESH_SECRET are identical', () => {
+    const shared = 'x'.repeat(32);
+    expect(() =>
+      validateEnv({
+        ...validEnv,
+        JWT_SECRET: shared,
+        JWT_REFRESH_SECRET: shared,
+      }),
+    ).toThrow(/JWT_REFRESH_SECRET/);
+  });
 });

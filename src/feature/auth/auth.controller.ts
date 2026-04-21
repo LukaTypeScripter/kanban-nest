@@ -60,6 +60,7 @@ export class AuthController {
   }
 
   @Get('verify-email')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   getVerifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token);
   }
@@ -74,6 +75,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   refreshToken(
     @Body(new ZodValidationPipe(RefreshTokenBodySchema))
     dto: RefreshTokenBodyType,
