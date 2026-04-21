@@ -14,11 +14,19 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  validate(payload: unknown): { id: number; email: string; emailVerified: boolean } {
+  validate(payload: unknown): {
+    id: number;
+    email: string;
+    emailVerified: boolean;
+  } {
     const result = AccessTokenPayloadSchema.safeParse(payload);
 
     if (!result.success) throw new UnauthorizedException();
 
-    return { id: result.data.sub, email: result.data.email, emailVerified: result.data.emailVerified };
+    return {
+      id: result.data.sub,
+      email: result.data.email,
+      emailVerified: result.data.emailVerified,
+    };
   }
 }

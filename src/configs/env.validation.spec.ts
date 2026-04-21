@@ -7,6 +7,11 @@ const validEnv: Record<string, unknown> = {
   GOOGLE_CLIENT_ID: 'client-id',
   GOOGLE_CLIENT_SECRET: 'client-secret',
   GOOGLE_CALLBACK_URL: 'http://localhost:3000/auth/google/callback',
+  SMTP_HOST: 'smtp.example.com',
+  SMTP_USER: 'user',
+  SMTP_PASS: 'pass',
+  SMTP_FROM: 'no-reply@example.com',
+  APP_URL: 'http://localhost:3000',
 };
 
 describe('validateEnv', () => {

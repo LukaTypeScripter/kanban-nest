@@ -25,7 +25,11 @@ describe('JwtStrategy', () => {
 
   describe('validate', () => {
     it('returns {id, email, emailVerified} for a valid access token payload', () => {
-      const payload = { sub: 1, email: 'user@example.com', emailVerified: true };
+      const payload = {
+        sub: 1,
+        email: 'user@example.com',
+        emailVerified: true,
+      };
 
       expect(strategy.validate(payload)).toEqual({
         id: 1,
@@ -58,7 +62,11 @@ describe('JwtStrategy', () => {
 
     it('throws UnauthorizedException when sub is not a number', () => {
       expect(() =>
-        strategy.validate({ sub: 'not-a-number', email: 'user@example.com', emailVerified: true }),
+        strategy.validate({
+          sub: 'not-a-number',
+          email: 'user@example.com',
+          emailVerified: true,
+        }),
       ).toThrow(UnauthorizedException);
     });
 

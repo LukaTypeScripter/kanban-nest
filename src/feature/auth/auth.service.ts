@@ -92,7 +92,7 @@ export class AuthService {
 
     await this.emailService
       .sendVerificationEmail(email, rawToken)
-      .catch((err) => {
+      .catch((err: Error) => {
         this.logger.error(
           `Failed to send verification email to ${email}: ${err.message}`,
         );
@@ -328,7 +328,7 @@ export class AuthService {
 
     await this.emailService
       .sendVerificationEmail(email, rawToken!)
-      .catch((err) => {
+      .catch((err: Error) => {
         this.logger.error(
           `Failed to send verification email to ${email}: ${err.message}`,
         );

@@ -20,10 +20,6 @@ import {
   type RefreshTokenBodyType,
 } from './schemas/refresh-token-body.schema';
 import {
-  VerifyEmailSchema,
-  type VerifyEmailType,
-} from './schemas/verify-email.schema';
-import {
   ResendVerificationSchema,
   type ResendVerificationType,
 } from './schemas/resend-verification.schema';
@@ -62,13 +58,6 @@ export class AuthController {
   localLogin(@Body(new ZodValidationPipe(LoginSchema)) dto: LoginType) {
     return this.authService.login(dto);
   }
-
-  // @Post('verify-email')
-  // verifyEmail(
-  //   @Body(new ZodValidationPipe(VerifyEmailSchema)) dto: VerifyEmailType,
-  // ) {
-  //   return this.authService.verifyEmail(dto.token);
-  // }
 
   @Get('verify-email')
   getVerifyEmail(@Query('token') token: string) {

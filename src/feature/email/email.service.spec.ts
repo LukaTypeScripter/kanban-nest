@@ -6,9 +6,19 @@ import { EmailService } from './email.service';
 jest.mock('nodemailer');
 const nodemailerMock = nodemailer as jest.Mocked<typeof nodemailer>;
 
+type SendMailArg = {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+};
+
 describe('EmailService', () => {
   let service: EmailService;
-  const sendMailMock = jest.fn().mockResolvedValue(undefined);
+  const sendMailMock = jest
+    .fn<Promise<unknown>, [SendMailArg]>()
+    .mockResolvedValue(undefined);
 
   beforeEach(async () => {
     nodemailerMock.createTransport.mockReturnValue({
@@ -46,7 +56,7 @@ describe('EmailService', () => {
   it('includes the raw token in both text and html body', async () => {
     await service.sendVerificationEmail('user@example.com', 'raw-token-abc');
 
-    const call = sendMailMock.mock.calls[0][0] as { text: string; html: string };
+    const call = sendMailMock.mock.calls[0][0];
     expect(call.text).toContain('raw-token-abc');
     expect(call.html).toContain('raw-token-abc');
   });

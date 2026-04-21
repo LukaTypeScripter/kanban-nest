@@ -36,7 +36,10 @@ type RefreshTokensRepoMock = jest.Mocked<
 type EmailVerificationRepoMock = jest.Mocked<
   Pick<
     EmailVerificationRepository,
-    'createEmailVerification' | 'findByTokenHash' | 'deleteById' | 'deleteByUserId'
+    | 'createEmailVerification'
+    | 'findByTokenHash'
+    | 'deleteById'
+    | 'deleteByUserId'
   >
 > & { transaction: { runInTransaction: jest.Mock } };
 type JwtServiceMock = jest.Mocked<Pick<JwtService, 'sign' | 'verify'>>;
@@ -110,7 +113,10 @@ describe('AuthService', () => {
         AuthService,
         { provide: UsersRepository, useValue: usersRepo },
         { provide: RefreshTokensRepository, useValue: refreshTokensRepo },
-        { provide: EmailVerificationRepository, useValue: emailVerificationRepo },
+        {
+          provide: EmailVerificationRepository,
+          useValue: emailVerificationRepo,
+        },
         { provide: EmailService, useValue: emailService },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
@@ -152,7 +158,10 @@ describe('AuthService', () => {
     });
 
     it('throws when user has no password (google-only account)', async () => {
-      usersRepo.findByEmail.mockResolvedValue({ ...userFixture, password: null } as never);
+      usersRepo.findByEmail.mockResolvedValue({
+        ...userFixture,
+        password: null,
+      } as never);
       bcryptMock.compare.mockResolvedValue(false as never);
       await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
     });
@@ -181,7 +190,10 @@ describe('AuthService', () => {
         refreshToken: 'signed-token',
       });
       expect(refreshTokensRepo.createRefreshToken).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: userFixture.id, token: 'hashed-value' }),
+        expect.objectContaining({
+          userId: userFixture.id,
+          token: 'hashed-value',
+        }),
         undefined,
       );
     });
@@ -204,16 +216,24 @@ describe('AuthService', () => {
       const result = await service.register(dto);
 
       expect(usersRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ email: dto.email, password: 'hashed-value', emailVerified: false }),
+        expect.objectContaining({
+          email: dto.email,
+          password: 'hashed-value',
+          emailVerified: false,
+        }),
       );
-      expect(emailVerificationRepo.createEmailVerification).toHaveBeenCalledWith(
+      expect(
+        emailVerificationRepo.createEmailVerification,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ userId: userFixture.id }),
       );
       expect(emailService.sendVerificationEmail).toHaveBeenCalledWith(
         dto.email,
         expect.any(String),
       );
-      expect(result).toEqual({ message: 'Check your email to verify your account' });
+      expect(result).toEqual({
+        message: 'Check your email to verify your account',
+      });
     });
   });
 
@@ -278,7 +298,9 @@ describe('AuthService', () => {
     });
 
     it('verifies email, deletes token row, issues tokens on success', async () => {
-      emailVerificationRepo.findByTokenHash.mockResolvedValue(verificationRow as never);
+      emailVerificationRepo.findByTokenHash.mockResolvedValue(
+        verificationRow as never,
+      );
       usersRepo.findById.mockResolvedValue(userFixture as never);
 
       const result = await service.verifyEmail(rawToken);
@@ -292,12 +314,18 @@ describe('AuthService', () => {
         verificationRow.id,
         expect.anything(),
       );
-      expect(result).toEqual({ accessToken: 'signed-token', refreshToken: 'signed-token' });
+      expect(result).toEqual({
+        accessToken: 'signed-token',
+        refreshToken: 'signed-token',
+      });
     });
   });
 
   describe('resendVerification', () => {
-    const SUCCESS_MSG = { message: 'If your email is pending verification, a new link has been sent' };
+    const SUCCESS_MSG = {
+      message:
+        'If your email is pending verification, a new link has been sent',
+    };
 
     it('returns success without sending when user not found', async () => {
       usersRepo.findByEmail.mockResolvedValue(undefined);
@@ -314,12 +342,20 @@ describe('AuthService', () => {
     });
 
     it('deletes old token, creates new token, sends email', async () => {
-      usersRepo.findByEmail.mockResolvedValue({ ...userFixture, emailVerified: false } as never);
+      usersRepo.findByEmail.mockResolvedValue({
+        ...userFixture,
+        emailVerified: false,
+      } as never);
 
       const result = await service.resendVerification(userFixture.email);
 
-      expect(emailVerificationRepo.deleteByUserId).toHaveBeenCalledWith(userFixture.id, expect.anything());
-      expect(emailVerificationRepo.createEmailVerification).toHaveBeenCalledWith(
+      expect(emailVerificationRepo.deleteByUserId).toHaveBeenCalledWith(
+        userFixture.id,
+        expect.anything(),
+      );
+      expect(
+        emailVerificationRepo.createEmailVerification,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({ userId: userFixture.id }),
         expect.anything(),
       );
@@ -333,7 +369,12 @@ describe('AuthService', () => {
 
   describe('refresh', () => {
     const rawToken = 'old-refresh-token';
-    const decoded = { sub: 1, email: 'user@example.com', jti: 'jti-123', emailVerified: true };
+    const decoded = {
+      sub: 1,
+      email: 'user@example.com',
+      jti: 'jti-123',
+      emailVerified: true,
+    };
     const storedRow = {
       id: 42,
       userId: 1,
@@ -343,16 +384,24 @@ describe('AuthService', () => {
     };
 
     it('throws when JWT signature is invalid', async () => {
-      jwtService.verify.mockImplementation(() => { throw new Error('bad signature'); });
-      await expect(service.refresh(rawToken)).rejects.toThrow(UnauthorizedException);
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('bad signature');
+      });
+      await expect(service.refresh(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('revokes all user tokens when no DB row exists (reuse detection)', async () => {
       jwtService.verify.mockReturnValue(decoded as never);
       refreshTokensRepo.findByJti.mockResolvedValue(undefined);
 
-      await expect(service.refresh(rawToken)).rejects.toThrow(UnauthorizedException);
-      expect(refreshTokensRepo.deleteAllByUserId).toHaveBeenCalledWith(decoded.sub);
+      await expect(service.refresh(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(refreshTokensRepo.deleteAllByUserId).toHaveBeenCalledWith(
+        decoded.sub,
+      );
     });
 
     it('throws when stored token is expired', async () => {
@@ -362,7 +411,9 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() - 1_000),
       } as never);
 
-      await expect(service.refresh(rawToken)).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(refreshTokensRepo.deleteAllByUserId).not.toHaveBeenCalled();
     });
 
@@ -371,7 +422,9 @@ describe('AuthService', () => {
       refreshTokensRepo.findByJti.mockResolvedValue(storedRow as never);
       bcryptMock.compare.mockResolvedValue(false as never);
 
-      await expect(service.refresh(rawToken)).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(refreshTokensRepo.deleteAllByUserId).not.toHaveBeenCalled();
     });
 
@@ -380,8 +433,12 @@ describe('AuthService', () => {
       refreshTokensRepo.findByJti.mockResolvedValue(storedRow as never);
       refreshTokensRepo.deleteRefreshToken.mockResolvedValue([]);
 
-      await expect(service.refresh(rawToken)).rejects.toThrow(UnauthorizedException);
-      expect(refreshTokensRepo.deleteAllByUserId).toHaveBeenCalledWith(decoded.sub);
+      await expect(service.refresh(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(refreshTokensRepo.deleteAllByUserId).toHaveBeenCalledWith(
+        decoded.sub,
+      );
       expect(refreshTokensRepo.createRefreshToken).not.toHaveBeenCalled();
     });
 
@@ -392,7 +449,10 @@ describe('AuthService', () => {
 
       const result = await service.refresh(rawToken);
 
-      expect(refreshTokensRepo.deleteRefreshToken).toHaveBeenCalledWith(storedRow.id, expect.anything());
+      expect(refreshTokensRepo.deleteRefreshToken).toHaveBeenCalledWith(
+        storedRow.id,
+        expect.anything(),
+      );
       expect(refreshTokensRepo.createRefreshToken).toHaveBeenCalled();
       expect(refreshTokensRepo.deleteAllByUserId).not.toHaveBeenCalled();
       expect(result.accessToken).toBe('signed-token');
@@ -401,7 +461,12 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     const rawToken = 'refresh-to-logout';
-    const decoded = { sub: 1, email: 'user@example.com', jti: 'jti-123', emailVerified: true };
+    const decoded = {
+      sub: 1,
+      email: 'user@example.com',
+      jti: 'jti-123',
+      emailVerified: true,
+    };
     const storedRow = {
       id: 7,
       userId: 1,
@@ -411,16 +476,24 @@ describe('AuthService', () => {
     };
 
     it('throws when JWT signature is invalid', async () => {
-      jwtService.verify.mockImplementation(() => { throw new Error('bad signature'); });
-      await expect(service.logout(rawToken)).rejects.toThrow(UnauthorizedException);
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('bad signature');
+      });
+      await expect(service.logout(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('revokes all user tokens when no DB row exists', async () => {
       jwtService.verify.mockReturnValue(decoded as never);
       refreshTokensRepo.findByJti.mockResolvedValue(undefined);
 
-      await expect(service.logout(rawToken)).rejects.toThrow(UnauthorizedException);
-      expect(refreshTokensRepo.deleteAllByUserId).toHaveBeenCalledWith(decoded.sub);
+      await expect(service.logout(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(refreshTokensRepo.deleteAllByUserId).toHaveBeenCalledWith(
+        decoded.sub,
+      );
     });
 
     it('throws without deleting when bcrypt hash does not match', async () => {
@@ -428,7 +501,9 @@ describe('AuthService', () => {
       refreshTokensRepo.findByJti.mockResolvedValue(storedRow as never);
       bcryptMock.compare.mockResolvedValue(false as never);
 
-      await expect(service.logout(rawToken)).rejects.toThrow(UnauthorizedException);
+      await expect(service.logout(rawToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(refreshTokensRepo.deleteRefreshToken).not.toHaveBeenCalled();
     });
 
@@ -438,7 +513,9 @@ describe('AuthService', () => {
 
       const result = await service.logout(rawToken);
 
-      expect(refreshTokensRepo.deleteRefreshToken).toHaveBeenCalledWith(storedRow.id);
+      expect(refreshTokensRepo.deleteRefreshToken).toHaveBeenCalledWith(
+        storedRow.id,
+      );
       expect(result).toEqual({ message: 'Logged out successfully' });
     });
   });
