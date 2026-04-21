@@ -2,7 +2,7 @@ import { DrizzleAsyncProvider } from '@db/database/database.provider';
 import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres/driver';
 import * as schema from '@src/schema';
-import { eq } from 'drizzle-orm/sql/expressions/conditions';
+import { and, eq } from 'drizzle-orm/sql/expressions/conditions';
 import { count, desc } from 'drizzle-orm';
 import { CreateBoardType } from '../schemas/board.schema';
 
@@ -15,8 +15,15 @@ export class BoardsRepository {
   async getBoards(userId: number) {
     return await this.db.query.kanban_board.findMany({
       where: (boards) => eq(boards.owner_id, userId),
-      with: { columns: true },
       orderBy: (boards) => [desc(boards.createdAt)],
+    });
+  }
+
+  async getBoardByIdAndOwnerId(boardId: number, ownerId: number) {
+    return await this.db.query.kanban_board.findFirst({
+      where: (boards) =>
+        and(eq(boards.id, boardId), eq(boards.owner_id, ownerId)),
+      with: { columns: true },
     });
   }
 

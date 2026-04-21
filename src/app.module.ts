@@ -9,6 +9,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core/constants';
 import { validateEnv } from '@configs/env.validation';
 import { EmailModule } from '@feature/email/email.module';
+import { KanbanModule } from '@feature/kanban/kanban.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { EmailModule } from '@feature/email/email.module';
     AuthModule,
     HealthModule,
     EmailModule,
+    KanbanModule,
   ],
   controllers: [AppController],
   providers: [

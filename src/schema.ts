@@ -1,4 +1,5 @@
 import { index } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 import {
   integer,
   pgTable,
@@ -64,6 +65,10 @@ export const kanban_board = pgTable(
   ],
 );
 
+export const kanbanBoardRelations = relations(kanban_board, ({ many }) => ({
+  columns: many(kanban_column),
+}));
+
 export const kanban_column = pgTable('kanban_column', {
   id: serial('id').primaryKey(),
   board_id: integer('board_id').references(() => kanban_board.id),
@@ -72,6 +77,14 @@ export const kanban_column = pgTable('kanban_column', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+export const kanbanColumnRelations = relations(kanban_column, ({ one, many }) => ({
+  board: one(kanban_board, {
+    fields: [kanban_column.board_id],
+    references: [kanban_board.id],
+  }),
+  cards: many(kanban_card),
+}));
 
 export const kanban_card = pgTable('kanban_card', {
   id: serial('id').primaryKey(),
@@ -82,3 +95,10 @@ export const kanban_card = pgTable('kanban_card', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+export const kanbanCardRelations = relations(kanban_card, ({ one }) => ({
+  column: one(kanban_column, {
+    fields: [kanban_card.column_id],
+    references: [kanban_column.id],
+  }),
+}));
