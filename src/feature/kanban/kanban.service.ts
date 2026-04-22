@@ -6,8 +6,7 @@ import {
 } from '@nestjs/common';
 import { BoardsRepository } from './repositories/boards.repository';
 import { CreateBoardType } from './schemas/board.schema';
-
-const MAX_BOARDS_PER_USER = 50;
+import { MAX_BOARDS_PER_USER } from './constants/max-board-user.constant';
 
 @Injectable()
 export class KanbanService {
