@@ -5,7 +5,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import { BoardsRepository } from './repositories/boards.repository';
-import { Board, CreateBoardType } from './schemas/board.schema';
+import {
+  Board,
+  CreateBoardType,
+  UpdateBoardType,
+} from './schemas/board.schema';
 import { MAX_BOARDS_PER_USER } from './constants/max-board-user.constant';
 
 @Injectable()
@@ -64,5 +68,19 @@ export class KanbanService {
       throw new ForbiddenException('Access to this board is forbidden');
 
     return board;
+  }
+
+  async updateBoard(
+    ownerId: number,
+    boardId: number,
+    updateData: UpdateBoardType,
+  ) {
+    this.logger.log(`updateBoard ownerId=${ownerId} boardId=${boardId}`);
+    return await this.boardsRepository
+      .updateBoard(ownerId, boardId, updateData)
+      .catch((err: Error) => {
+        this.logger.error(err.message, err.stack);
+        throw err;
+      });
   }
 }

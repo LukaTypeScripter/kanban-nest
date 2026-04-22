@@ -43,6 +43,13 @@
       "when": 1776791234952,
       "tag": "0005_volatile_colleen_wing",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776879576216,
+      "tag": "0006_chemical_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import {
   Get,
   ParseIntPipe,
   Post,
-  Req,
+  Patch,
   UseGuards,
   HttpCode,
   Param,
@@ -12,10 +12,13 @@ import {
 import { KanbanService } from './kanban.service';
 import {
   CreateBoardSchema,
+  UpdateBoardSchema,
+  type UpdateBoardType,
   type CreateBoardType,
 } from './schemas/board.schema';
 import { AuthGuard } from '@nestjs/passport';
 import { ZodValidationPipe } from '@common/pipes/zod-validation.pipe';
+import { CurrentUser } from '@common/decorators/current-user.decorator';
 
 type JwtUser = { id: number; email: string; emailVerified: boolean };
 
@@ -25,24 +28,33 @@ export class KanbanController {
   constructor(private kanbanService: KanbanService) {}
 
   @Get('boards')
-  getBoards(@Req() req: Request & { user: JwtUser }) {
-    return this.kanbanService.getBoards(req.user.id);
+  getBoards(@CurrentUser() user: JwtUser) {
+    return this.kanbanService.getBoards(user.id);
   }
 
   @Post('boards')
   @HttpCode(201)
   createBoard(
-    @Req() req: Request & { user: JwtUser },
+    @CurrentUser() user: JwtUser,
     @Body(new ZodValidationPipe(CreateBoardSchema)) board: CreateBoardType,
   ) {
-    return this.kanbanService.createBoard(req.user.id, board);
+    return this.kanbanService.createBoard(user.id, board);
   }
 
-  @Get('board/with-columns')
+  @Get('boards/:boardId')
   getBoardWithColumns(
-    @Req() req: Request & { user: JwtUser },
+    @CurrentUser() user: JwtUser,
     @Param('boardId', ParseIntPipe) boardId: number,
   ) {
-    return this.kanbanService.getBoardWithColumns(req.user.id, boardId);
+    return this.kanbanService.getBoardWithColumns(user.id, boardId);
+  }
+
+  @Patch('board/:boardId')
+  updateBoard(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body(new ZodValidationPipe(UpdateBoardSchema)) updateData: UpdateBoardType,
+  ) {
+    return this.kanbanService.updateBoard(user.id, boardId, updateData);
   }
 }

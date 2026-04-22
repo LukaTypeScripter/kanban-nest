@@ -3,8 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres/driver';
 import * as schema from '@src/schema';
 import { and, eq } from 'drizzle-orm/sql/expressions/conditions';
-import { count, desc } from 'drizzle-orm';
-import { CreateBoardType } from '../schemas/board.schema';
+import { desc } from 'drizzle-orm';
+import { CreateBoardType, UpdateBoardType } from '../schemas/board.schema';
 import { RunInTransactionUtility } from '@common/utility/run-in-transaction.utility';
 import { Tx } from '@common/types/transaction.type';
 
@@ -38,13 +38,13 @@ export class BoardsRepository {
     limit: number,
   ) {
     return await this.transaction.runInTransaction(async (tx) => {
-      const [result] = await tx
-        .select({ count: count() })
+      const rows = await tx
+        .select({ id: schema.kanban_board.id })
         .from(schema.kanban_board)
         .where(eq(schema.kanban_board.owner_id, ownerId))
         .for('update');
 
-      if (result.count >= limit) return null;
+      if (rows.length >= limit) return null;
 
       const [created] = await tx
         .insert(schema.kanban_board)
@@ -59,5 +59,24 @@ export class BoardsRepository {
       .insert(schema.kanban_board)
       .values({ ...board, owner_id: ownerId })
       .returning();
+  }
+
+  async updateBoard(
+    ownerId: number,
+    boardId: number,
+    updateData: UpdateBoardType,
+  ) {
+    const [updated] = await this.db
+      .update(schema.kanban_board)
+      .set(updateData)
+      .where(
+        and(
+          eq(schema.kanban_board.id, boardId),
+          eq(schema.kanban_board.owner_id, ownerId),
+        ),
+      )
+      .returning();
+
+    return updated;
   }
 }
