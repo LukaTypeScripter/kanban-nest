@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   Param,
+  Delete,
 } from '@nestjs/common';
 import { KanbanService } from './kanban.service';
 import {
@@ -56,5 +57,14 @@ export class KanbanController {
     @Body(new ZodValidationPipe(UpdateBoardSchema)) updateData: UpdateBoardType,
   ) {
     return this.kanbanService.updateBoard(user.id, boardId, updateData);
+  }
+
+  @Delete('board/:boardId')
+  @HttpCode(204)
+  deleteBoard(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+  ) {
+    return this.kanbanService.deleteBoard(user.id, boardId);
   }
 }

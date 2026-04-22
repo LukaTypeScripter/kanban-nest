@@ -18,6 +18,20 @@ export class KanbanService {
 
   constructor(private boardsRepository: BoardsRepository) {}
 
+  handleDuplicationTitleError(error: unknown) {
+    if (error instanceof ForbiddenException) throw error;
+
+    if (error instanceof Error) {
+      this.logger.error(error.message, error.stack);
+
+      if ((error as unknown as { code?: string }).code === '23505') {
+        throw new ConflictException('Board with this title already exists');
+      }
+    }
+
+    throw error;
+  }
+
   getBoards(userId: number) {
     this.logger.log(`getBoards userId=${userId}`);
     return this.boardsRepository.getBoards(userId).catch((err: Error) => {
@@ -43,15 +57,7 @@ export class KanbanService {
 
       return created;
     } catch (err) {
-      if (err instanceof ForbiddenException) throw err;
-
-      if (err instanceof Error) {
-        this.logger.error(err.message, err.stack);
-
-        if ((err as unknown as { code?: string }).code === '23505') {
-          throw new ConflictException('Board with this title already exists');
-        }
-      }
+      this.handleDuplicationTitleError(err);
 
       throw err;
     }
@@ -76,11 +82,49 @@ export class KanbanService {
     updateData: UpdateBoardType,
   ) {
     this.logger.log(`updateBoard ownerId=${ownerId} boardId=${boardId}`);
-    return await this.boardsRepository
-      .updateBoard(ownerId, boardId, updateData)
-      .catch((err: Error) => {
+
+    try {
+      const updated = await this.boardsRepository
+        .updateBoard(ownerId, boardId, updateData)
+        .catch((err: Error) => {
+          this.logger.error(err.message, err.stack);
+          throw err;
+        });
+
+      if (!updated)
+        throw new ForbiddenException(
+          'update failed. Access to this board is forbidden or board does not exist',
+        );
+
+      return { message: 'Board updated successfully', board: updated };
+    } catch (err) {
+      this.handleDuplicationTitleError(err);
+
+      throw err;
+    }
+  }
+
+  async deleteBoard(ownerId: number, boardId: number) {
+    this.logger.log(`deleteBoard ownerId=${ownerId} boardId=${boardId}`);
+
+    try {
+      const isDeleted = await this.boardsRepository.deleteBoard(
+        ownerId,
+        boardId,
+      );
+
+      if (!isDeleted)
+        throw new ForbiddenException(
+          'deletion failed. Access to this board is forbidden or board does not exist',
+        );
+    } catch (err) {
+      if (err instanceof ForbiddenException) throw err;
+
+      if (err instanceof Error) {
         this.logger.error(err.message, err.stack);
-        throw err;
-      });
+      }
+
+      throw err;
+    }
   }
 }

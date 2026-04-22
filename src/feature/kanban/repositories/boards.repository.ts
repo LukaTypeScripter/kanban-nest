@@ -79,4 +79,18 @@ export class BoardsRepository {
 
     return updated;
   }
+
+  async deleteBoard(ownerId: number, boardId: number) {
+    const [deleted] = await this.db
+      .delete(schema.kanban_board)
+      .where(
+        and(
+          eq(schema.kanban_board.id, boardId),
+          eq(schema.kanban_board.owner_id, ownerId),
+        ),
+      )
+      .returning();
+
+    return deleted ?? null;
+  }
 }
