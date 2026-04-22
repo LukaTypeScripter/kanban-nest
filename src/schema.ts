@@ -78,13 +78,16 @@ export const kanban_column = pgTable('kanban_column', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const kanbanColumnRelations = relations(kanban_column, ({ one, many }) => ({
-  board: one(kanban_board, {
-    fields: [kanban_column.board_id],
-    references: [kanban_board.id],
+export const kanbanColumnRelations = relations(
+  kanban_column,
+  ({ one, many }) => ({
+    board: one(kanban_board, {
+      fields: [kanban_column.board_id],
+      references: [kanban_board.id],
+    }),
+    cards: many(kanban_card),
   }),
-  cards: many(kanban_card),
-}));
+);
 
 export const kanban_card = pgTable('kanban_card', {
   id: serial('id').primaryKey(),

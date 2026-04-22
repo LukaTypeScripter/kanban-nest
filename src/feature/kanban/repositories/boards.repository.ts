@@ -11,7 +11,6 @@ export class BoardsRepository {
   constructor(
     @Inject(DrizzleAsyncProvider) private db: NodePgDatabase<typeof schema>,
   ) {}
-
   async getBoards(userId: number) {
     return await this.db.query.kanban_board.findMany({
       where: (boards) => eq(boards.owner_id, userId),
