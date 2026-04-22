@@ -1,16 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { KanbanService } from './kanban.service';
 import { BoardsRepository } from './repositories/boards.repository';
-import { MAX_BOARDS_PER_USER } from './constants/max-board-user.constant';
 import { ForbiddenException } from '@nestjs/common';
 
 type BoardRepoMock = jest.Mocked<
   Pick<
     BoardsRepository,
-    | 'getBoards'
-    | 'getBoardByIdAndOwnerId'
-    | 'getOwnedBoardsCount'
-    | 'createBoard'
+    'getBoards' | 'getBoardByIdAndOwnerId' | 'createBoardWithLimit'
   >
 >;
 
@@ -20,8 +16,7 @@ describe('KanbanService', () => {
   const boardsRepo = {
     getBoards: jest.fn(),
     getBoardByIdAndOwnerId: jest.fn(),
-    getOwnedBoardsCount: jest.fn(),
-    createBoard: jest.fn(),
+    createBoardWithLimit: jest.fn(),
   } as BoardRepoMock;
 
   beforeEach(async () => {
@@ -77,8 +72,7 @@ describe('KanbanService', () => {
       color: null,
     };
 
-    boardsRepo.getOwnedBoardsCount.mockResolvedValue(0);
-    boardsRepo.createBoard.mockResolvedValue([createdBoard]);
+    boardsRepo.createBoardWithLimit.mockResolvedValue(createdBoard);
 
     const result = await service.createBoard(ownerId, boardData);
     expect(result).toEqual(createdBoard);
@@ -91,7 +85,7 @@ describe('KanbanService', () => {
       description: 'A new board',
       color: undefined,
     };
-    boardsRepo.getOwnedBoardsCount.mockResolvedValue(MAX_BOARDS_PER_USER);
+    boardsRepo.createBoardWithLimit.mockResolvedValue(null);
     await expect(service.createBoard(ownerId, boardData)).rejects.toThrow(
       ForbiddenException,
     );

@@ -4,10 +4,10 @@ import {
   Get,
   ParseIntPipe,
   Post,
-  Query,
   Req,
   UseGuards,
   HttpCode,
+  Param,
 } from '@nestjs/common';
 import { KanbanService } from './kanban.service';
 import {
@@ -41,7 +41,7 @@ export class KanbanController {
   @Get('board/with-columns')
   getBoardWithColumns(
     @Req() req: Request & { user: JwtUser },
-    @Query('boardId', ParseIntPipe) boardId: number,
+    @Param('boardId', ParseIntPipe) boardId: number,
   ) {
     return this.kanbanService.getBoardWithColumns(req.user.id, boardId);
   }

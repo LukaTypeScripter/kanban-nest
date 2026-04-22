@@ -71,7 +71,9 @@ export const kanbanBoardRelations = relations(kanban_board, ({ many }) => ({
 
 export const kanban_column = pgTable('kanban_column', {
   id: serial('id').primaryKey(),
-  board_id: integer('board_id').references(() => kanban_board.id),
+  board_id: integer('board_id')
+    .references(() => kanban_board.id, { onDelete: 'cascade' })
+    .notNull(),
   title: text('title').notNull(),
   position: integer('position').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -91,7 +93,9 @@ export const kanbanColumnRelations = relations(
 
 export const kanban_card = pgTable('kanban_card', {
   id: serial('id').primaryKey(),
-  column_id: integer('column_id').references(() => kanban_column.id),
+  column_id: integer('column_id')
+    .references(() => kanban_column.id, { onDelete: 'cascade' })
+    .notNull(),
   title: text('title').notNull(),
   description: text('description'),
   position: integer('position').notNull(),

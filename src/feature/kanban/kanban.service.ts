@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { BoardsRepository } from './repositories/boards.repository';
-import { CreateBoardType } from './schemas/board.schema';
+import { Board, CreateBoardType } from './schemas/board.schema';
 import { MAX_BOARDS_PER_USER } from './constants/max-board-user.constant';
 
 @Injectable()
@@ -22,24 +22,33 @@ export class KanbanService {
     });
   }
 
-  async createBoard(ownerId: number, board: CreateBoardType) {
+  async createBoard(ownerId: number, board: CreateBoardType): Promise<Board> {
     this.logger.log(`createBoard ownerId=${ownerId}`);
-    const count = await this.boardsRepository.getOwnedBoardsCount(ownerId);
-
-    if (count >= MAX_BOARDS_PER_USER)
-      throw new ForbiddenException(
-        `You can't have more than ${MAX_BOARDS_PER_USER} boards`,
-      );
 
     try {
-      const [created] = await this.boardsRepository.createBoard(ownerId, board);
+      const created = await this.boardsRepository.createBoardWithLimit(
+        ownerId,
+        board,
+        MAX_BOARDS_PER_USER,
+      );
+
+      if (!created)
+        throw new ForbiddenException(
+          `You can't have more than ${MAX_BOARDS_PER_USER} boards`,
+        );
+
       return created;
     } catch (err) {
+      if (err instanceof ForbiddenException) throw err;
+
       if (err instanceof Error) {
         this.logger.error(err.message, err.stack);
-        if ((err as unknown as { code: string }).code === '23505')
-          throw new ConflictException('A board with this title already exists');
+
+        if ((err as unknown as { code?: string }).code === '23505') {
+          throw new ConflictException('Board with this title already exists');
+        }
       }
+
       throw err;
     }
   }
