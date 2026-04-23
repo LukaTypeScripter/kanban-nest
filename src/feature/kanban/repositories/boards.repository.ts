@@ -7,6 +7,7 @@ import { desc } from 'drizzle-orm';
 import { CreateBoardType, UpdateBoardType } from '../schemas/board.schema';
 import { RunInTransactionUtility } from '@common/utility/run-in-transaction.utility';
 import { Tx } from '@common/types/transaction.type';
+import { CreateColumnType, UpdateColumnType } from '../schemas/column.schema';
 
 @Injectable()
 export class BoardsRepository {
@@ -91,6 +92,61 @@ export class BoardsRepository {
       )
       .returning();
 
+    return deleted ?? null;
+  }
+
+  // columns
+  async createColumnWithLimit(
+    boardId: number,
+    column: CreateColumnType,
+    limit: number,
+  ) {
+    return await this.transaction.runInTransaction(async (tx) => {
+      const rows = await tx
+        .select({ id: schema.kanban_column.id })
+        .from(schema.kanban_column)
+        .where(eq(schema.kanban_column.board_id, boardId))
+        .for('update');
+
+      if (rows.length >= limit) return null;
+
+      const [created] = await tx
+        .insert(schema.kanban_column)
+        .values({ ...column, board_id: boardId })
+        .returning();
+      return created ?? null;
+    });
+  }
+
+  async updateColumn(
+    boardId: number,
+    columnId: number,
+    updateData: UpdateColumnType,
+  ) {
+    const [updated] = await this.db
+      .update(schema.kanban_column)
+      .set(updateData)
+      .where(
+        and(
+          eq(schema.kanban_column.id, columnId),
+          eq(schema.kanban_column.board_id, boardId),
+        ),
+      )
+      .returning();
+
+    return updated ?? null;
+  }
+
+  async deleteColumn(boardId: number, columnId: number) {
+    const [deleted] = await this.db
+      .delete(schema.kanban_column)
+      .where(
+        and(
+          eq(schema.kanban_column.id, columnId),
+          eq(schema.kanban_column.board_id, boardId),
+        ),
+      )
+      .returning();
     return deleted ?? null;
   }
 }

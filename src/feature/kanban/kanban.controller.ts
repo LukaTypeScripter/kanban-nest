@@ -20,6 +20,12 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ZodValidationPipe } from '@common/pipes/zod-validation.pipe';
 import { CurrentUser } from '@common/decorators/current-user.decorator';
+import {
+  CreateColumnSchema,
+  UpdateColumnSchema,
+  type UpdateColumnType,
+  type CreateColumnType,
+} from './schemas/column.schema';
 
 type JwtUser = { id: number; email: string; emailVerified: boolean };
 
@@ -66,5 +72,49 @@ export class KanbanController {
     @Param('boardId', ParseIntPipe) boardId: number,
   ) {
     return this.kanbanService.deleteBoard(user.id, boardId);
+  }
+  // columns
+  @Get('boards/:boardId/columns')
+  getColumns(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+  ) {
+    return this.kanbanService.getColumns(user.id, boardId);
+  }
+
+  @Post('boards/:boardId/columns')
+  @HttpCode(201)
+  createColumn(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Body(new ZodValidationPipe(CreateColumnSchema)) column: CreateColumnType,
+  ) {
+    return this.kanbanService.createColumn(user.id, boardId, column);
+  }
+
+  @Patch('boards/:boardId/columns/:columnId')
+  updateColumn(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Body(new ZodValidationPipe(UpdateColumnSchema))
+    updateData: UpdateColumnType,
+  ) {
+    return this.kanbanService.updateColumn(
+      user.id,
+      boardId,
+      columnId,
+      updateData,
+    );
+  }
+
+  @Delete('boards/:boardId/columns/:columnId')
+  @HttpCode(204)
+  deleteColumn(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+  ) {
+    return this.kanbanService.deleteColumn(user.id, boardId, columnId);
   }
 }
