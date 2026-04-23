@@ -221,6 +221,8 @@ export class KanbanService {
         throw new ForbiddenException(
           'deletion failed. Access to this column is forbidden or column does not exist',
         );
+
+      return isDeleted;
     } catch (err) {
       this.handleNormalError(err);
     }

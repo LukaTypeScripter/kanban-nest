@@ -6,7 +6,12 @@ import { ForbiddenException } from '@nestjs/common';
 type BoardRepoMock = jest.Mocked<
   Pick<
     BoardsRepository,
-    'getBoards' | 'getBoardByIdAndOwnerId' | 'createBoardWithLimit'
+    | 'getBoards'
+    | 'getBoardByIdAndOwnerId'
+    | 'createBoardWithLimit'
+    | 'updateColumn'
+    | 'deleteColumn'
+    | 'createColumnWithLimit'
   >
 >;
 
@@ -17,6 +22,9 @@ describe('KanbanService', () => {
     getBoards: jest.fn(),
     getBoardByIdAndOwnerId: jest.fn(),
     createBoardWithLimit: jest.fn(),
+    updateColumn: jest.fn(),
+    deleteColumn: jest.fn(),
+    createColumnWithLimit: jest.fn(),
   } as BoardRepoMock;
 
   beforeEach(async () => {
@@ -108,5 +116,52 @@ describe('KanbanService', () => {
     boardsRepo.getBoardByIdAndOwnerId.mockResolvedValue(board);
     const result = await service.getBoardWithColumns(userId, boardId);
     expect(result).toEqual(board);
+  });
+
+  it('should update column', async () => {
+    const ownerId = 1;
+    const boardId = 1;
+    const columnId = 1;
+    const updateData = {
+      title: 'Updated Column',
+    };
+    const updatedColumn = {
+      id: 1,
+      createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+      title: 'Updated Column',
+      board_id: 1,
+      position: 1,
+    };
+    boardsRepo.updateColumn.mockResolvedValue(updatedColumn);
+    const result = await service.updateColumn(
+      ownerId,
+      boardId,
+      columnId,
+      updateData,
+    );
+    expect(result).toEqual(updatedColumn);
+  });
+
+  it('should throw an error if the column is not found', async () => {
+    const ownerId = 1;
+    const boardId = 1;
+    const columnId = 1;
+    const updateData = {
+      title: 'Updated Column',
+    };
+    boardsRepo.updateColumn.mockResolvedValue(null);
+    await expect(
+      service.updateColumn(ownerId, boardId, columnId, updateData),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should delete column', async () => {
+    const ownerId = 1;
+    const boardId = 1;
+    const columnId = 1;
+    boardsRepo.deleteColumn.mockResolvedValue(true);
+    const result = await service.deleteColumn(ownerId, boardId, columnId);
+    expect(result).toEqual(true);
   });
 });

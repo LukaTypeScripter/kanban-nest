@@ -8,6 +8,7 @@ import { CreateBoardType, UpdateBoardType } from '../schemas/board.schema';
 import { RunInTransactionUtility } from '@common/utility/run-in-transaction.utility';
 import { Tx } from '@common/types/transaction.type';
 import { CreateColumnType, UpdateColumnType } from '../schemas/column.schema';
+import { BoardColumnPayloadType } from '../schemas/board-column-payload.schema';
 
 @Injectable()
 export class BoardsRepository {
@@ -122,7 +123,7 @@ export class BoardsRepository {
     boardId: number,
     columnId: number,
     updateData: UpdateColumnType,
-  ) {
+  ): Promise<BoardColumnPayloadType | null> {
     const [updated] = await this.db
       .update(schema.kanban_column)
       .set(updateData)
@@ -137,7 +138,7 @@ export class BoardsRepository {
     return updated ?? null;
   }
 
-  async deleteColumn(boardId: number, columnId: number) {
+  async deleteColumn(boardId: number, columnId: number): Promise<boolean> {
     const [deleted] = await this.db
       .delete(schema.kanban_column)
       .where(
@@ -147,6 +148,6 @@ export class BoardsRepository {
         ),
       )
       .returning();
-    return deleted ?? null;
+    return deleted ? true : false;
   }
 }
