@@ -26,6 +26,12 @@ import {
   type UpdateColumnType,
   type CreateColumnType,
 } from './schemas/column.schema';
+import {
+  CreateCardSchema,
+  type CreateCardType,
+  UpdateCardSchema,
+  type UpdateCardType,
+} from './schemas/card.schema';
 
 type JwtUser = { id: number; email: string; emailVerified: boolean };
 
@@ -116,5 +122,47 @@ export class KanbanController {
     @Param('columnId', ParseIntPipe) columnId: number,
   ) {
     return this.kanbanService.deleteColumn(user.id, boardId, columnId);
+  }
+
+  // cards
+
+  @Post('boards/:boardId/columns/:columnId/cards')
+  @HttpCode(201)
+  createCard(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Body(new ZodValidationPipe(CreateCardSchema)) card: CreateCardType,
+  ) {
+    return this.kanbanService.createCard(user.id, boardId, columnId, card);
+  }
+
+  @Patch('boards/:boardId/columns/:columnId/cards/:cardId')
+  updateCard(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Param('cardId', ParseIntPipe) cardId: number,
+    @Body(new ZodValidationPipe(UpdateCardSchema))
+    updateData: UpdateCardType,
+  ) {
+    return this.kanbanService.updateCard(
+      user.id,
+      boardId,
+      columnId,
+      cardId,
+      updateData,
+    );
+  }
+
+  @Delete('boards/:boardId/columns/:columnId/cards/:cardId')
+  @HttpCode(204)
+  deleteCard(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Param('cardId', ParseIntPipe) cardId: number,
+  ) {
+    return this.kanbanService.deleteCard(user.id, boardId, columnId, cardId);
   }
 }

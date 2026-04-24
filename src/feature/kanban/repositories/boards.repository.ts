@@ -9,6 +9,13 @@ import { RunInTransactionUtility } from '@common/utility/run-in-transaction.util
 import { Tx } from '@common/types/transaction.type';
 import { CreateColumnType, UpdateColumnType } from '../schemas/column.schema';
 import { BoardColumnPayloadType } from '../schemas/board-column-payload.schema';
+import { Board } from '../schemas/board.schema';
+import { KanbanBoardWithColumns } from '../schemas/kanban-column.schema';
+import {
+  CardType,
+  CreateCardType,
+  UpdateCardType,
+} from '../schemas/card.schema';
 
 @Injectable()
 export class BoardsRepository {
@@ -19,14 +26,17 @@ export class BoardsRepository {
   ) {
     this.transaction = new RunInTransactionUtility(db);
   }
-  async getBoards(userId: number) {
+  async getBoards(userId: number): Promise<Board[]> {
     return await this.db.query.kanban_board.findMany({
       where: (boards) => eq(boards.owner_id, userId),
       orderBy: (boards) => [desc(boards.createdAt)],
     });
   }
 
-  async getBoardByIdAndOwnerId(boardId: number, ownerId: number) {
+  async getBoardByIdAndOwnerId(
+    boardId: number,
+    ownerId: number,
+  ): Promise<KanbanBoardWithColumns | undefined> {
     return await this.db.query.kanban_board.findFirst({
       where: (boards) =>
         and(eq(boards.id, boardId), eq(boards.owner_id, ownerId)),
@@ -38,7 +48,7 @@ export class BoardsRepository {
     ownerId: number,
     board: CreateBoardType,
     limit: number,
-  ) {
+  ): Promise<Board | null> {
     return await this.transaction.runInTransaction(async (tx) => {
       const rows = await tx
         .select({ id: schema.kanban_board.id })
@@ -56,7 +66,11 @@ export class BoardsRepository {
     });
   }
 
-  async createBoard(ownerId: number, board: CreateBoardType, tx?: Tx) {
+  async createBoard(
+    ownerId: number,
+    board: CreateBoardType,
+    tx?: Tx,
+  ): Promise<Board[]> {
     return await (tx || this.db)
       .insert(schema.kanban_board)
       .values({ ...board, owner_id: ownerId })
@@ -67,7 +81,7 @@ export class BoardsRepository {
     ownerId: number,
     boardId: number,
     updateData: UpdateBoardType,
-  ) {
+  ): Promise<Board> {
     const [updated] = await this.db
       .update(schema.kanban_board)
       .set(updateData)
@@ -82,7 +96,7 @@ export class BoardsRepository {
     return updated;
   }
 
-  async deleteBoard(ownerId: number, boardId: number) {
+  async deleteBoard(ownerId: number, boardId: number): Promise<Board | null> {
     const [deleted] = await this.db
       .delete(schema.kanban_board)
       .where(
@@ -101,7 +115,7 @@ export class BoardsRepository {
     boardId: number,
     column: CreateColumnType,
     limit: number,
-  ) {
+  ): Promise<BoardColumnPayloadType | null> {
     return await this.transaction.runInTransaction(async (tx) => {
       const rows = await tx
         .select({ id: schema.kanban_column.id })
@@ -149,5 +163,60 @@ export class BoardsRepository {
       )
       .returning();
     return deleted ? true : false;
+  }
+
+  // cards
+  async createCardWithLimit(
+    columnId: number,
+    card: CreateCardType,
+    limit: number,
+  ): Promise<CardType | null> {
+    return await this.transaction.runInTransaction(async (tx) => {
+      const rows = await tx
+        .select({ id: schema.kanban_card.id })
+        .from(schema.kanban_card)
+        .where(eq(schema.kanban_card.column_id, columnId))
+        .for('update');
+
+      if (rows.length >= limit) return null;
+
+      const [created] = await tx
+        .insert(schema.kanban_card)
+        .values({ ...card, column_id: columnId })
+        .returning();
+      return created ?? null;
+    });
+  }
+
+  async updateCard(
+    columnId: number,
+    cardId: number,
+    updateData: UpdateCardType,
+  ): Promise<CardType | null> {
+    const [updated] = await this.db
+      .update(schema.kanban_card)
+      .set(updateData)
+      .where(
+        and(
+          eq(schema.kanban_card.id, cardId),
+          eq(schema.kanban_card.column_id, columnId),
+        ),
+      )
+      .returning();
+
+    return updated ?? null;
+  }
+
+  async deleteCard(columnId: number, cardId: number): Promise<boolean> {
+    const [deleted] = await this.db
+      .delete(schema.kanban_card)
+      .where(
+        and(
+          eq(schema.kanban_card.id, cardId),
+          eq(schema.kanban_card.column_id, columnId),
+        ),
+      )
+      .returning();
+    return !!deleted;
   }
 }

@@ -11,8 +11,18 @@ import {
   UpdateBoardType,
 } from './schemas/board.schema';
 import { MAX_BOARDS_PER_USER } from './constants/max-board-user.constant';
-import { CreateColumnType, UpdateColumnType } from './schemas/column.schema';
+import {
+  CreateColumnType,
+  UpdateColumnType,
+  ColumnType,
+} from './schemas/column.schema';
 import { MAX_COLUMNS_PER_BOARD } from './constants/max-column-count.constant';
+import {
+  CardType,
+  CreateCardType,
+  UpdateCardType,
+} from './schemas/card.schema';
+import { MAX_CARDS_PER_COLUMN } from './constants/max-card.constant';
 
 @Injectable()
 export class KanbanService {
@@ -136,7 +146,10 @@ export class KanbanService {
 
   // columns
 
-  async getColumns(ownerId: number, boardId: number) {
+  async getColumns(
+    ownerId: number,
+    boardId: number,
+  ): Promise<ColumnType[] | undefined> {
     this.logger.log(`getColumns ownerId=${ownerId} boardId=${boardId}`);
 
     try {
@@ -157,7 +170,7 @@ export class KanbanService {
     ownerId: number,
     boardId: number,
     column: CreateColumnType,
-  ) {
+  ): Promise<CreateColumnType> {
     this.logger.log(`createColumn ownerId=${ownerId} boardId=${boardId}`);
 
     try {
@@ -183,7 +196,7 @@ export class KanbanService {
     boardId: number,
     columnId: number,
     updateData: UpdateColumnType,
-  ) {
+  ): Promise<UpdateColumnType> {
     this.logger.log(
       `updateColumn ownerId=${ownerId} boardId=${boardId} columnId=${columnId}`,
     );
@@ -206,7 +219,11 @@ export class KanbanService {
     }
   }
 
-  async deleteColumn(ownerId: number, boardId: number, columnId: number) {
+  async deleteColumn(
+    ownerId: number,
+    boardId: number,
+    columnId: number,
+  ): Promise<boolean> {
     this.logger.log(
       `deleteColumn ownerId=${ownerId} boardId=${boardId} columnId=${columnId}`,
     );
@@ -223,6 +240,119 @@ export class KanbanService {
         );
 
       return isDeleted;
+    } catch (err) {
+      this.handleNormalError(err);
+    }
+  }
+
+  // cards
+
+  async createCard(
+    ownerId: number,
+    boardId: number,
+    columnId: number,
+    card: CreateCardType,
+  ): Promise<CardType> {
+    this.logger.log(
+      `createCard ownerId=${ownerId} boardId=${boardId} columnId=${columnId}`,
+    );
+
+    try {
+      const boardExists = await this.boardsRepository.getBoardByIdAndOwnerId(
+        boardId,
+        ownerId,
+      );
+
+      if (!boardExists)
+        throw new ForbiddenException(
+          'creation failed. Access to this board is forbidden or board does not exist',
+        );
+
+      const created = await this.boardsRepository.createCardWithLimit(
+        columnId,
+        card,
+        MAX_CARDS_PER_COLUMN,
+      );
+
+      if (!created)
+        throw new ForbiddenException(
+          'creation failed. Access to this column is forbidden or column does not exist',
+        );
+
+      return created;
+    } catch (err) {
+      this.handleNormalError(err);
+    }
+  }
+
+  async updateCard(
+    ownerId: number,
+    boardId: number,
+    columnId: number,
+    cardId: number,
+    updateData: UpdateCardType,
+  ): Promise<CardType> {
+    this.logger.log(
+      `updateCard ownerId=${ownerId} boardId=${boardId} columnId=${columnId} cardId=${cardId}`,
+    );
+
+    try {
+      const boardExists = await this.boardsRepository.getBoardByIdAndOwnerId(
+        boardId,
+        ownerId,
+      );
+
+      if (!boardExists)
+        throw new ForbiddenException(
+          'update failed. Access to this board is forbidden or board does not exist',
+        );
+
+      const updated = await this.boardsRepository.updateCard(
+        columnId,
+        cardId,
+        updateData,
+      );
+
+      if (!updated)
+        throw new ForbiddenException(
+          'update failed. Access to this card is forbidden or card does not exist',
+        );
+
+      return updated;
+    } catch (err) {
+      this.handleNormalError(err);
+    }
+  }
+
+  async deleteCard(
+    ownerId: number,
+    boardId: number,
+    columnId: number,
+    cardId: number,
+  ): Promise<boolean> {
+    this.logger.log(
+      `deleteCard ownerId=${ownerId} boardId=${boardId} columnId=${columnId} cardId=${cardId}`,
+    );
+
+    try {
+      const boardExists = await this.boardsRepository.getBoardByIdAndOwnerId(
+        boardId,
+        ownerId,
+      );
+
+      if (!boardExists)
+        throw new ForbiddenException(
+          'delete failed. Access to this board is forbidden or board does not exist',
+        );
+
+      const deleted = await this.boardsRepository.deleteCard(columnId, cardId);
+
+      if (!deleted)
+        throw new ForbiddenException(
+          'delete failed. Access to this card is forbidden or card does not exist',
+        );
+
+      return deleted;
     } catch (err) {
       this.handleNormalError(err);
     }
