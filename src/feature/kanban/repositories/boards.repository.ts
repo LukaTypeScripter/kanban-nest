@@ -66,17 +66,6 @@ export class BoardsRepository {
     });
   }
 
-  async createBoard(
-    ownerId: number,
-    board: CreateBoardType,
-    tx?: Tx,
-  ): Promise<Board[]> {
-    return await (tx || this.db)
-      .insert(schema.kanban_board)
-      .values({ ...board, owner_id: ownerId })
-      .returning();
-  }
-
   async updateBoard(
     ownerId: number,
     boardId: number,
