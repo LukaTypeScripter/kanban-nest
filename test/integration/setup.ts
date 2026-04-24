@@ -41,6 +41,6 @@ export async function startTestDb(): Promise<TestDb> {
 
 export async function truncateAll(db: NodePgDatabase<Schema>) {
   await db.execute(
-    sql`TRUNCATE TABLE refresh_tokens, users RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE kanban_card, kanban_column, kanban_board, refresh_tokens, users RESTART IDENTITY CASCADE`,
   );
 }
