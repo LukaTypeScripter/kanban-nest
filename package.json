@@ -24,7 +24,8 @@
     "db:generate": "drizzle-kit generate --config=src/configs/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=src/configs/drizzle.config.ts",
     "generate:postman": "ts-node -r tsconfig-paths/register scripts/generate-postman.ts",
-    "db:truncate": "ts-node -r tsconfig-paths/register scripts/truncate-all.ts"
+    "db:truncate": "ts-node -r tsconfig-paths/register scripts/truncate-all.ts",
+    "db:seed:move": "ts-node -r tsconfig-paths/register scripts/seed-move-test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

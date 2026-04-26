@@ -32,6 +32,7 @@ import {
   UpdateCardSchema,
   type UpdateCardType,
 } from './schemas/card.schema';
+import { MoveCardSchema, type MoveCardType } from './schemas/move-data.schema';
 
 type JwtUser = { id: number; email: string; emailVerified: boolean };
 
@@ -164,5 +165,25 @@ export class KanbanController {
     @Param('cardId', ParseIntPipe) cardId: number,
   ) {
     return this.kanbanService.deleteCard(user.id, boardId, columnId, cardId);
+  }
+
+  @Patch('boards/:boardId/columns/:columnId/cards/:cardId/move')
+  moveCard(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Param('cardId', ParseIntPipe) cardId: number,
+    @Body(new ZodValidationPipe(MoveCardSchema))
+    moveData: MoveCardType,
+  ) {
+    return this.kanbanService.moveCard(
+      user.id,
+      boardId,
+      columnId,
+      cardId,
+      moveData.positionIndex,
+      moveData.fromColumnId,
+      moveData.fromPositionIndex,
+    );
   }
 }

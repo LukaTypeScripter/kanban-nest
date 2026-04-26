@@ -2,8 +2,8 @@ import { DrizzleAsyncProvider } from '@db/database/database.provider';
 import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres/driver';
 import * as schema from '@src/schema';
-import { and, eq } from 'drizzle-orm/sql/expressions/conditions';
-import { desc } from 'drizzle-orm';
+import { and, eq, gte, lte } from 'drizzle-orm/sql/expressions/conditions';
+import { desc, sql } from 'drizzle-orm';
 import { CreateBoardType, UpdateBoardType } from '../schemas/board.schema';
 import { RunInTransactionUtility } from '@common/utility/run-in-transaction.utility';
 import { CreateColumnType, UpdateColumnType } from '../schemas/column.schema';
@@ -15,6 +15,7 @@ import {
   CreateCardType,
   UpdateCardType,
 } from '../schemas/card.schema';
+import { Tx } from '@common/types/transaction.type';
 
 @Injectable()
 export class BoardsRepository {
@@ -216,17 +217,19 @@ export class BoardsRepository {
     return !!deleted;
   }
 
-  async getCardsInColumn(columnId: number): Promise<CardType[]> {
-    return await this.db.query.kanban_card.findMany({
+  async getCardsInColumn(columnId: number, tx?: Tx): Promise<CardType[]> {
+    return await (tx ?? this.db).query.kanban_card.findMany({
       where: eq(schema.kanban_card.column_id, columnId),
+      orderBy: (cards, { asc }) => [asc(cards.position)],
     });
   }
 
   async getCardByPosition(
     columnId: number,
     position: number,
+    tx?: Tx,
   ): Promise<CardType | undefined> {
-    return await this.db.query.kanban_card.findFirst({
+    return await (tx ?? this.db).query.kanban_card.findFirst({
       where: and(
         eq(schema.kanban_card.column_id, columnId),
         eq(schema.kanban_card.position, position),
@@ -239,8 +242,9 @@ export class BoardsRepository {
     cardId: number,
     newColumnId: number,
     position: number,
+    tx?: Tx,
   ): Promise<CardType | null> {
-    const [updated] = await this.db
+    const [updated] = await (tx ?? this.db)
       .update(schema.kanban_card)
       .set({ column_id: newColumnId, position })
       .where(
@@ -252,5 +256,38 @@ export class BoardsRepository {
       .returning();
 
     return updated ?? null;
+  }
+
+  async normalizeColumnPositions(columnId: number, tx: Tx): Promise<void> {
+    const cards = await this.getCardsInColumn(columnId, tx);
+    if (cards.length === 0) return;
+
+    await (tx ?? this.db).execute(
+      sql`UPDATE kanban_card SET position = v.pos
+          FROM (VALUES ${sql.join(
+            cards.map((c, i) => sql`(${c.id}::int, ${(i + 1) * 1000}::int)`),
+            sql`, `,
+          )}) AS v(id, pos)
+          WHERE kanban_card.id = v.id AND kanban_card.column_id = ${columnId}`,
+    );
+  }
+
+  async shiftPositions(
+    columnId: number,
+    delta: 1000 | -1000,
+    minPos: number,
+    maxPos: number,
+    tx: Tx,
+  ): Promise<void> {
+    await (tx ?? this.db)
+      .update(schema.kanban_card)
+      .set({ position: sql`position + ${delta}` })
+      .where(
+        and(
+          eq(schema.kanban_card.column_id, columnId),
+          gte(schema.kanban_card.position, minPos),
+          lte(schema.kanban_card.position, maxPos),
+        ),
+      );
   }
 }
