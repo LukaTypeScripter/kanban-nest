@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  ForbiddenException,
-  ConflictException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { BoardsRepository } from './repositories/boards.repository';
 import {
   Board,
@@ -23,6 +18,7 @@ import {
   UpdateCardType,
 } from './schemas/card.schema';
 import { MAX_CARDS_PER_COLUMN } from './constants/max-card.constant';
+import { KanbanConflictException, KanbanException } from './kanban.exception';
 
 @Injectable()
 export class KanbanService {
@@ -37,7 +33,10 @@ export class KanbanService {
       this.logger.error(error.message, error.stack);
 
       if ((error as unknown as { code?: string }).code === '23505') {
-        throw new ConflictException('Board with this title already exists');
+        throw new KanbanConflictException(
+          'DuplicateBoardTitle',
+          'Board with this title already exists',
+        );
       }
     }
 
@@ -74,7 +73,8 @@ export class KanbanService {
       );
 
       if (!created)
-        throw new ForbiddenException(
+        throw new KanbanException(
+          'TooManyBoards',
           `You can't have more than ${MAX_BOARDS_PER_USER} boards`,
         );
 
@@ -92,8 +92,7 @@ export class KanbanService {
         userId,
       );
 
-      if (!board)
-        throw new ForbiddenException('Access to this board is forbidden');
+      if (!board) throw new KanbanException('BoardNotFound', 'Board not found');
 
       return board;
     } catch (err) {
@@ -116,9 +115,7 @@ export class KanbanService {
       );
 
       if (!updated)
-        throw new ForbiddenException(
-          'update failed. Access to this board is forbidden or board does not exist',
-        );
+        throw new KanbanException('BoardNotFound', 'Board not found');
 
       return updated;
     } catch (err) {
@@ -136,9 +133,7 @@ export class KanbanService {
       );
 
       if (!isDeleted)
-        throw new ForbiddenException(
-          'deletion failed. Access to this board is forbidden or board does not exist',
-        );
+        throw new KanbanException('BoardNotFound', 'Board not found');
     } catch (err) {
       this.handleNormalError(err);
     }
@@ -157,8 +152,7 @@ export class KanbanService {
         boardId,
         ownerId,
       );
-      if (!board)
-        throw new ForbiddenException('Access to this board is forbidden');
+      if (!board) throw new KanbanException('BoardNotFound', 'Board not found');
 
       return board.columns;
     } catch (err) {
@@ -181,7 +175,8 @@ export class KanbanService {
       );
 
       if (!created)
-        throw new ForbiddenException(
+        throw new KanbanException(
+          'TooManyColumns',
           `You can't have more than ${MAX_COLUMNS_PER_BOARD} columns per board`,
         );
 
@@ -209,9 +204,7 @@ export class KanbanService {
       );
 
       if (!updated)
-        throw new ForbiddenException(
-          'update failed. Access to this column is forbidden or column does not exist',
-        );
+        throw new KanbanException('ColumnNotFound', 'Column not found');
 
       return updated;
     } catch (err) {
@@ -235,9 +228,7 @@ export class KanbanService {
       );
 
       if (!isDeleted)
-        throw new ForbiddenException(
-          'deletion failed. Access to this column is forbidden or column does not exist',
-        );
+        throw new KanbanException('ColumnNotFound', 'Column not found');
 
       return isDeleted;
     } catch (err) {
@@ -264,9 +255,7 @@ export class KanbanService {
       );
 
       if (!boardExists)
-        throw new ForbiddenException(
-          'creation failed. Access to this board is forbidden or board does not exist',
-        );
+        throw new KanbanException('BoardNotFound', 'Board not found');
 
       const created = await this.boardsRepository.createCardWithLimit(
         columnId,
@@ -275,8 +264,9 @@ export class KanbanService {
       );
 
       if (!created)
-        throw new ForbiddenException(
-          'creation failed. Access to this column is forbidden or column does not exist',
+        throw new KanbanException(
+          'TooManyCardsInColumn',
+          `You can't have more than ${MAX_CARDS_PER_COLUMN} cards per column`,
         );
 
       return created;
@@ -303,9 +293,7 @@ export class KanbanService {
       );
 
       if (!boardExists)
-        throw new ForbiddenException(
-          'update failed. Access to this board is forbidden or board does not exist',
-        );
+        throw new KanbanException('BoardNotFound', 'Board not found');
 
       const updated = await this.boardsRepository.updateCard(
         columnId,
@@ -313,10 +301,7 @@ export class KanbanService {
         updateData,
       );
 
-      if (!updated)
-        throw new ForbiddenException(
-          'update failed. Access to this card is forbidden or card does not exist',
-        );
+      if (!updated) throw new KanbanException('CardNotFound', 'Card not found');
 
       return updated;
     } catch (err) {
@@ -341,16 +326,11 @@ export class KanbanService {
       );
 
       if (!boardExists)
-        throw new ForbiddenException(
-          'delete failed. Access to this board is forbidden or board does not exist',
-        );
+        throw new KanbanException('BoardNotFound', 'Board not found');
 
       const deleted = await this.boardsRepository.deleteCard(columnId, cardId);
 
-      if (!deleted)
-        throw new ForbiddenException(
-          'delete failed. Access to this card is forbidden or card does not exist',
-        );
+      if (!deleted) throw new KanbanException('CardNotFound', 'Card not found');
 
       return deleted;
     } catch (err) {

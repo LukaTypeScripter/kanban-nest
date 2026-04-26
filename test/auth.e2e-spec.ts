@@ -43,15 +43,28 @@ describe('Auth (e2e)', () => {
   type TokenResponse = { accessToken: string; refreshToken: string };
   type ProfileResponse = { id: number; email: string };
 
+  async function registerAndVerify(): Promise<TokenResponse> {
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send(creds);
+    await pool.query(
+      'UPDATE users SET email_verified = true WHERE email = $1',
+      [creds.email],
+    );
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: creds.email, password: creds.password });
+    return res.body as TokenResponse;
+  }
+
   describe('POST /api/v1/auth/register', () => {
-    it('returns 201 with access + refresh tokens', async () => {
+    it('returns 201 with a verification message', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send(creds);
 
       expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty('accessToken');
-      expect(res.body).toHaveProperty('refreshToken');
+      expect((res.body as { message: string }).message).toBeDefined();
     });
 
     it('returns 400 on invalid body (Zod pipe)', async () => {
@@ -64,17 +77,10 @@ describe('Auth (e2e)', () => {
   });
 
   describe('POST /api/v1/auth/login', () => {
-    it('returns 201 with tokens after a successful register', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send(creds);
-
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/login')
-        .send({ email: creds.email, password: creds.password });
-
-      expect(res.status).toBe(201);
-      expect((res.body as TokenResponse).accessToken).toBeDefined();
+    it('returns 201 with tokens after register and email verification', async () => {
+      const tokens = await registerAndVerify();
+      expect(tokens.accessToken).toBeDefined();
+      expect(tokens.refreshToken).toBeDefined();
     });
 
     it('returns 401 on wrong password', async () => {
@@ -99,16 +105,11 @@ describe('Auth (e2e)', () => {
     });
 
     it('returns 200 + user payload with a valid access token', async () => {
-      const registered = await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send(creds);
-
-      expect(registered.status).toBe(201);
-      const token = (registered.body as TokenResponse).accessToken;
+      const { accessToken } = await registerAndVerify();
 
       const res = await request(app.getHttpServer())
         .get('/api/v1/auth/profile')
-        .set('Authorization', `Bearer ${token}`);
+        .set('Authorization', `Bearer ${accessToken}`);
 
       expect(res.status).toBe(200);
       expect((res.body as ProfileResponse).email).toBe(creds.email);
@@ -117,10 +118,7 @@ describe('Auth (e2e)', () => {
 
   describe('POST /api/v1/auth/refresh', () => {
     it('rotates the refresh token and returns new access + refresh', async () => {
-      const registered = await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send(creds);
-      const oldRefresh = (registered.body as TokenResponse).refreshToken;
+      const { refreshToken: oldRefresh } = await registerAndVerify();
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')

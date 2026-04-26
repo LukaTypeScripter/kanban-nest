@@ -6,7 +6,6 @@ import { and, eq } from 'drizzle-orm/sql/expressions/conditions';
 import { desc } from 'drizzle-orm';
 import { CreateBoardType, UpdateBoardType } from '../schemas/board.schema';
 import { RunInTransactionUtility } from '@common/utility/run-in-transaction.utility';
-import { Tx } from '@common/types/transaction.type';
 import { CreateColumnType, UpdateColumnType } from '../schemas/column.schema';
 import { BoardColumnPayloadType } from '../schemas/board-column-payload.schema';
 import { Board } from '../schemas/board.schema';

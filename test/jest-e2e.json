@@ -14,5 +14,6 @@
     "^@src/(.*)$": "<rootDir>/../src/$1"
   },
   "globalSetup": "<rootDir>/global-setup.ts",
-  "testTimeout": 60000
+  "testTimeout": 60000,
+  "maxWorkers": 1
 }
