@@ -153,6 +153,14 @@ export class BoardsRepository {
     return deleted ? true : false;
   }
 
+  async getColumnById(
+    columnId: number,
+  ): Promise<BoardColumnPayloadType | undefined> {
+    return await this.db.query.kanban_column.findFirst({
+      where: eq(schema.kanban_column.id, columnId),
+    });
+  }
+
   // cards
   async createCardWithLimit(
     columnId: number,
@@ -206,5 +214,43 @@ export class BoardsRepository {
       )
       .returning();
     return !!deleted;
+  }
+
+  async getCardsInColumn(columnId: number): Promise<CardType[]> {
+    return await this.db.query.kanban_card.findMany({
+      where: eq(schema.kanban_card.column_id, columnId),
+    });
+  }
+
+  async getCardByPosition(
+    columnId: number,
+    position: number,
+  ): Promise<CardType | undefined> {
+    return await this.db.query.kanban_card.findFirst({
+      where: and(
+        eq(schema.kanban_card.column_id, columnId),
+        eq(schema.kanban_card.position, position),
+      ),
+    });
+  }
+
+  async moveCard(
+    columnId: number,
+    cardId: number,
+    newColumnId: number,
+    position: number,
+  ): Promise<CardType | null> {
+    const [updated] = await this.db
+      .update(schema.kanban_card)
+      .set({ column_id: newColumnId, position })
+      .where(
+        and(
+          eq(schema.kanban_card.id, cardId),
+          eq(schema.kanban_card.column_id, columnId),
+        ),
+      )
+      .returning();
+
+    return updated ?? null;
   }
 }

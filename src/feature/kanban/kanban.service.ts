@@ -337,4 +337,110 @@ export class KanbanService {
       this.handleNormalError(err);
     }
   }
+
+  async moveCard(
+    ownerId: number,
+    boardId: number,
+    columnId: number,
+    cardId: number,
+    newColumnId: number,
+    positionIndex: number,
+    toColumnId: number,
+    fromColumnId: number,
+    fromPositionIndex: number,
+  ): Promise<CardType> {
+    this.logger.log(
+      `moveCard ownerId=${ownerId} boardId=${boardId} columnId=${columnId} cardId=${cardId} newColumnId=${newColumnId} toColumnId=${toColumnId} fromColumnId=${fromColumnId} fromPosition=${fromPositionIndex}`,
+    );
+
+    try {
+      const boardExists = await this.boardsRepository.getBoardByIdAndOwnerId(
+        boardId,
+        ownerId,
+      );
+
+      if (!boardExists)
+        throw new KanbanException('BoardNotFound', 'Board not found');
+
+      const columnExists = await this.boardsRepository.getColumnById(columnId);
+
+      if (!columnExists)
+        throw new KanbanException('ColumnNotFound', 'Column not found');
+
+      const cardsInColumn =
+        await this.boardsRepository.getCardsInColumn(columnId);
+
+      if (!cardsInColumn)
+        throw new KanbanException('ColumnNotFound', 'Column not found');
+
+      let updated: CardType | null;
+
+      if (cardsInColumn.length === 0) {
+        // first card in clumn
+        const position = 1000;
+        updated = await this.boardsRepository.moveCard(
+          columnId,
+          cardId,
+          newColumnId,
+          position,
+        );
+      } else {
+        // index should be 1,2,3 so front should do index + 1
+
+        if (toColumnId === fromColumnId) {
+          const positionFromIndex = positionIndex * 1000;
+
+          const cardAtPosition = await this.boardsRepository.getCardByPosition(
+            columnId,
+            positionFromIndex,
+          );
+
+          if (cardAtPosition) {
+            // position index = 2
+            // cardsInColumn.length = 5
+            // cardsInColumn[3] will be moved to position 4000 (was 3000)
+            // cardsInColumn[4] will be moved to position 5000 (was 4000)
+
+            for (let i = positionIndex + 1; i < cardsInColumn.length; i++) {
+              const card = cardsInColumn[i];
+              await this.boardsRepository.moveCard(
+                columnId,
+                card.id,
+                newColumnId,
+                card.position + 1000,
+              );
+            }
+          }
+
+          updated = await this.boardsRepository.moveCard(
+            columnId,
+            cardId,
+            newColumnId,
+            positionFromIndex,
+          );
+        } else {
+
+          const fromInColumn =
+
+
+          // from column adjustment
+          for (let i = fromPositionIndex; i < cardsInColumn.length; i++) {
+            const card = cardsInColumn[i];
+            await this.boardsRepository.moveCard(
+              columnId,
+              card.id,
+              newColumnId,
+              card.position + 1000,
+            );
+          }
+        }
+      }
+
+      if (!updated) throw new KanbanException('CardNotFound', 'Card not found');
+
+      return updated;
+    } catch (err) {
+      this.handleNormalError(err);
+    }
+  }
 }
