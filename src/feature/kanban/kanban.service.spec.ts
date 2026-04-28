@@ -17,8 +17,12 @@ type BoardRepoMock = jest.Mocked<
     | 'updateCard'
     | 'deleteCard'
     | 'normalizeColumnPositions'
+    | 'getColumnById'
+    | 'getCardById'
+    | 'moveCard'
+    | 'getCardsInColumn'
   >
->;
+> & { transaction: { runInTransaction: jest.Mock } };
 
 describe('KanbanService', () => {
   let service: KanbanService;
@@ -34,12 +38,36 @@ describe('KanbanService', () => {
     updateCard: jest.fn(),
     deleteCard: jest.fn(),
     normalizeColumnPositions: jest.fn(),
+    getColumnById: jest.fn(),
+    getCardById: jest.fn(),
+    moveCard: jest.fn(),
+    getCardsInColumn: jest.fn(),
+    transaction: {
+      runInTransaction: jest
+        .fn()
+        .mockImplementation((cb: (tx: unknown) => unknown) => cb({})),
+    },
   } as BoardRepoMock;
 
   const userId = 1;
   const boardId = 1;
   const columnId = 1;
   const cardId = 1;
+
+  const makeCard = (id: number, position: number) => ({
+    id,
+    column_id: columnId,
+    title: `Card ${id}`,
+    description: null,
+    position,
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+  });
+
+  const cardA = makeCard(1, 1000);
+  const cardB = makeCard(2, 2000);
+  const cardC = makeCard(3, 3000);
+  const cardD = makeCard(4, 4000);
 
   const board = {
     id: 1,
@@ -50,6 +78,15 @@ describe('KanbanService', () => {
     title: 'New Board',
     color: null,
     columns: [],
+  };
+
+  const column = {
+    id: columnId,
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+    title: 'New Column',
+    position: 1,
+    board_id: boardId,
   };
 
   const updatedCard = {
@@ -76,6 +113,12 @@ describe('KanbanService', () => {
     }).compile();
 
     service = module.get<KanbanService>(KanbanService);
+
+    boardsRepo.getBoardByIdAndOwnerId.mockResolvedValue(board);
+    boardsRepo.getColumnById.mockResolvedValue(column);
+    boardsRepo.getCardsInColumn.mockResolvedValue([cardA, cardB, cardC, cardD]);
+    boardsRepo.normalizeColumnPositions.mockResolvedValue(undefined);
+    boardsRepo.moveCard.mockResolvedValue({ ...cardA, position: 3500 });
   });
 
   it('should be defined', () => {
@@ -113,6 +156,83 @@ describe('KanbanService', () => {
 
     it('rethrows a non-Error value', () => {
       expect(() => service.handleDuplicationTitleError('oops')).toThrow('oops');
+    });
+  });
+
+  describe('pickPosition', () => {
+    it('should pick position between two existing positions', () => {
+      const prevPosition = 1000;
+      const nextPosition = 2000;
+      const result = service.pickPosition(prevPosition, nextPosition);
+      expect(result).toBe(1500);
+    });
+
+    it('should pick position before the first existing position', () => {
+      const prevPosition = null;
+      const nextPosition = 1000;
+      const result = service.pickPosition(prevPosition, nextPosition);
+      expect(result).toBe(500);
+    });
+
+    it('should pick position after the last existing position', () => {
+      const prevPosition = 2000;
+      const nextPosition = null;
+      const result = service.pickPosition(prevPosition, nextPosition);
+      expect(result).toBe(3000);
+    });
+  });
+
+  describe('moveCard', () => {
+    const toColumnId = columnId;
+
+    it('moves a card between two neighboring positions', async () => {
+      boardsRepo.getCardById
+        .mockResolvedValueOnce(cardC)
+        .mockResolvedValueOnce(cardD);
+
+      const result = await service.moveCard(
+        userId,
+        boardId,
+        columnId,
+        cardId,
+        cardA.id,
+        cardB.id,
+      );
+
+      expect(boardsRepo.moveCard).toHaveBeenCalledWith(
+        cardA.id,
+        toColumnId,
+        3500,
+        {},
+      );
+      expect(result.message).toBe('Card moved successfully');
+    });
+
+    it('throws BoardNotFound when board does not exist', async () => {
+      boardsRepo.getBoardByIdAndOwnerId.mockResolvedValue(undefined);
+
+      await expect(
+        service.moveCard(userId, boardId, columnId, cardId, cardA.id, cardB.id),
+      ).rejects.toThrow();
+    });
+
+    it('throws ColumnNotFound when column does not exist', async () => {
+      boardsRepo.getColumnById.mockResolvedValue(undefined);
+
+      await expect(
+        service.moveCard(userId, boardId, columnId, cardId, cardA.id, cardB.id),
+      ).rejects.toThrow();
+    });
+
+    it('throws CardNotFound when card does not exist', async () => {
+      boardsRepo.getCardById
+        .mockResolvedValueOnce(cardC)
+        .mockResolvedValueOnce(cardD);
+      boardsRepo.moveCard.mockResolvedValue(null);
+
+      await expect(
+        service.moveCard(userId, boardId, columnId, cardId, cardA.id, cardB.id),
+      ).rejects.toThrow();
     });
   });
 

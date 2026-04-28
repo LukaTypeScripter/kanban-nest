@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, Logger, Next } from '@nestjs/common';
+import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { BoardsRepository } from './repositories/boards.repository';
 import {
   Board,
@@ -19,7 +19,6 @@ import {
 } from './schemas/card.schema';
 import { MAX_CARDS_PER_COLUMN } from './constants/max-card.constant';
 import { KanbanConflictException, KanbanException } from './kanban.exception';
-import { Tx } from '@common/types/transaction.type';
 
 @Injectable()
 export class KanbanService {
@@ -393,8 +392,8 @@ export class KanbanService {
     boardId: number,
     toColumnId: number,
     cardId: number,
-    beforeCardId: number,
-    afterCardId: number,
+    beforeCardId: number | null,
+    afterCardId: number | null,
   ): Promise<{ message: string; result: CardType[] }> {
     this.logger.log(
       `moveCard ownerId=${ownerId} boardId=${boardId} columnId=${toColumnId} cardId=${cardId} beforeCardId=${beforeCardId} afterCardId=${afterCardId}`,
@@ -483,11 +482,11 @@ export class KanbanService {
     const PAD = 1000;
 
     if (prevPosition === null && nextPosition === null) return PAD;
-    if (prevPosition === null) return nextPosition! - PAD;
-    if (nextPosition === null) return prevPosition! + PAD;
+    if (prevPosition === null) return Math.floor(nextPosition! / 2);
+    if (nextPosition === null) return prevPosition + PAD;
 
-    if (nextPosition! - prevPosition! > 1)
-      return Math.floor((prevPosition! + nextPosition!) / 2);
+    if (nextPosition - prevPosition > 1)
+      return Math.floor((prevPosition + nextPosition) / 2);
 
     return null;
   }

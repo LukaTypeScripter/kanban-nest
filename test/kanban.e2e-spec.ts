@@ -10,6 +10,12 @@ type BoardResponse = { id: number; title: string; columns: unknown[] };
 type ColumnResponse = { id: number; title: string };
 type CardResponse = { id: number; title: string };
 type ListResponse<T> = T[];
+type MoveSetup = {
+  boardId: number;
+  todoId: number;
+  doingId: number;
+  cardIds: { a: number; b: number; c: number; d: number };
+};
 
 describe('Kanban (e2e)', () => {
   let app: INestApplication<App>;
@@ -21,6 +27,19 @@ describe('Kanban (e2e)', () => {
     password: 'correct-horse-battery-staple',
     name: 'Kanban User',
   };
+
+  async function setupMoveData(): Promise<MoveSetup> {
+    const boardId = await createBoard('Move Board');
+    const todoId = await createColumn(boardId, 'Todo');
+    const doingId = await createColumn(boardId, 'Doing');
+
+    const a = await createCard(boardId, todoId, 'Card A');
+    const b = await createCard(boardId, todoId, 'Card B');
+    const c = await createCard(boardId, todoId, 'Card C');
+    const d = await createCard(boardId, todoId, 'Card D');
+
+    return { boardId, todoId, doingId, cardIds: { a, b, c, d } };
+  }
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -353,6 +372,93 @@ describe('Kanban (e2e)', () => {
           )
           .set(auth());
         expect(res.status).toBe(403);
+      });
+    });
+
+    describe('PATCH /api/v1/kanban/boards/:boardId/columns/:columnId/cards/:cardId/move', () => {
+      let setup: MoveSetup;
+
+      beforeEach(async () => {
+        setup = await setupMoveData();
+      });
+
+      it('moves card in different position in same column', async () => {
+        const { boardId, todoId, cardIds } = setup;
+
+        const res = await request(app.getHttpServer())
+          .patch(
+            `/api/v1/kanban/boards/${boardId}/columns/${todoId}/cards/${cardIds.a}/move`,
+          )
+          .set(auth())
+          .send({ beforeCardId: cardIds.c, afterCardId: cardIds.d });
+
+        expect(res.status).toBe(200);
+
+        const result = (res.body as { result: CardResponse[] }).result;
+        const positions = result.map((card) => card.id);
+        expect(positions.indexOf(cardIds.a)).toBeGreaterThan(
+          positions.indexOf(cardIds.c),
+        );
+      });
+
+      it('moves card to the end of the column', async () => {
+        const { boardId, todoId, cardIds } = setup;
+
+        const res = await request(app.getHttpServer())
+          .patch(
+            `/api/v1/kanban/boards/${boardId}/columns/${todoId}/cards/${cardIds.a}/move`,
+          )
+          .set(auth())
+          .send({ beforeCardId: cardIds.c, afterCardId: null });
+
+        expect(res.status).toBe(200);
+
+        const result = (res.body as { result: CardResponse[] }).result;
+        const positions = result.map((card) => card.id);
+        expect(positions.indexOf(cardIds.a)).toBeGreaterThan(
+          positions.indexOf(cardIds.c),
+        );
+      });
+
+      it('moves card to the beginning of the column', async () => {
+        const { boardId, todoId, cardIds } = setup;
+
+        const res = await request(app.getHttpServer())
+          .patch(
+            `/api/v1/kanban/boards/${boardId}/columns/${todoId}/cards/${cardIds.a}/move`,
+          )
+          .set(auth())
+          .send({ beforeCardId: null, afterCardId: cardIds.d });
+
+        expect(res.status).toBe(200);
+
+        const result = (res.body as { result: CardResponse[] }).result;
+        const positions = result.map((card) => card.id);
+
+        expect(positions.indexOf(cardIds.a)).toBeGreaterThan(
+          positions.indexOf(cardIds.d),
+        );
+      });
+
+      it('moves a card to a different column', async () => {
+        const { boardId, doingId, cardIds } = setup;
+
+        const res = await request(app.getHttpServer())
+          .patch(
+            `/api/v1/kanban/boards/${boardId}/columns/${doingId}/cards/${cardIds.a}/move`,
+          )
+          .set(auth())
+          .send({ beforeCardId: null, afterCardId: null });
+
+        expect(res.status).toBe(200);
+
+        const doingCards = await request(app.getHttpServer())
+          .get(`/api/v1/kanban/boards/${boardId}/columns/${doingId}/cards`)
+          .set(auth());
+
+        expect(
+          (doingCards.body as CardResponse[]).some((c) => c.id === cardIds.a),
+        ).toBe(true);
       });
     });
   });

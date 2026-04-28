@@ -1,9 +1,8 @@
 import { z } from 'zod';
 
 export const MoveCardSchema = z.object({
-  toColumnId: z.number(),
-  beforeCardId: z.number(),
-  afterCardId: z.number(),
+  beforeCardId: z.number().nullable(),
+  afterCardId: z.number().nullable(),
 });
 
 export type MoveCardType = z.infer<typeof MoveCardSchema>;
