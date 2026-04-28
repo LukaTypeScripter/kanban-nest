@@ -238,7 +238,6 @@ export class BoardsRepository {
   }
 
   async moveCard(
-    columnId: number,
     cardId: number,
     newColumnId: number,
     position: number,
@@ -247,12 +246,7 @@ export class BoardsRepository {
     const [updated] = await (tx ?? this.db)
       .update(schema.kanban_card)
       .set({ column_id: newColumnId, position })
-      .where(
-        and(
-          eq(schema.kanban_card.id, cardId),
-          eq(schema.kanban_card.column_id, columnId),
-        ),
-      )
+      .where(and(eq(schema.kanban_card.id, cardId)))
       .returning();
 
     return updated ?? null;
@@ -289,5 +283,11 @@ export class BoardsRepository {
           lte(schema.kanban_card.position, maxPos),
         ),
       );
+  }
+
+  async getCardById(cardId: number, tx?: Tx): Promise<CardType | undefined> {
+    return await (tx ?? this.db).query.kanban_card.findFirst({
+      where: eq(schema.kanban_card.id, cardId),
+    });
   }
 }
