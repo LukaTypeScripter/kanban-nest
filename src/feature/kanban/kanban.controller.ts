@@ -181,9 +181,8 @@ export class KanbanController {
       boardId,
       columnId,
       cardId,
-      moveData.positionIndex,
-      moveData.fromColumnId,
-      moveData.fromPositionIndex,
+      moveData.beforeCardId,
+      moveData.afterCardId,
     );
   }
 }
