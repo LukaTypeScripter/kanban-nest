@@ -14,7 +14,8 @@ export type KanbanErrorCode =
   | 'CardNotFound'
   | 'DuplicateBoardTitle'
   | 'InvalidNeighbour'
-  | 'PositionNotFound';
+  | 'PositionNotFound'
+  | 'ColumnEmpty';
 
 export class KanbanException extends ForbiddenException {
   constructor(code: KanbanErrorCode, message: string) {

@@ -127,6 +127,26 @@ export class KanbanController {
 
   // cards
 
+  @Get('boards/:boardId/columns/:columnId/cards')
+  getCards(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+  ) {
+    return this.kanbanService.getCards(user.id, boardId, columnId);
+  }
+
+  @Get('boards/:boardId/columns/:columnId/cards/:cardId/one')
+  @HttpCode(200)
+  getCard(
+    @CurrentUser() user: JwtUser,
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Param('columnId', ParseIntPipe) columnId: number,
+    @Param('cardId', ParseIntPipe) cardId: number,
+  ) {
+    return this.kanbanService.getCardById(user.id, boardId, columnId, cardId);
+  }
+
   @Post('boards/:boardId/columns/:columnId/cards')
   @HttpCode(201)
   createCard(

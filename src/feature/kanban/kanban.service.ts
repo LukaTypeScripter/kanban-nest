@@ -239,6 +239,33 @@ export class KanbanService {
 
   // cards
 
+  async getCards(
+    ownerId: number,
+    boardId: number,
+    columnId: number,
+  ): Promise<CardType[]> {
+    this.logger.log(
+      `getCards ownerId=${ownerId} boardId=${boardId} columnId=${columnId}`,
+    );
+
+    try {
+      const board = await this.boardsRepository.getBoardByIdAndOwnerId(
+        boardId,
+        ownerId,
+      );
+
+      if (!board) throw new KanbanException('BoardNotFound', 'Board not found');
+
+      const columnInBoard = board.columns.some((c) => c.id === columnId);
+      if (!columnInBoard)
+        throw new KanbanException('ColumnNotFound', 'Column not found');
+
+      return await this.boardsRepository.getCardsInColumn(columnId);
+    } catch (err) {
+      this.handleNormalError(err);
+    }
+  }
+
   async createCard(
     ownerId: number,
     boardId: number,
@@ -274,6 +301,28 @@ export class KanbanService {
     } catch (err) {
       this.handleNormalError(err);
     }
+  }
+
+  async getCardById(
+    ownerId: number,
+    boardId: number,
+    columnId: number,
+    cardId: number,
+  ): Promise<CardType | undefined> {
+    this.logger.log(
+      `getCardById ownerId=${ownerId} boardId=${boardId} columnId=${columnId} cardId=${cardId}`,
+    );
+
+    const card = await this.boardsRepository.getCardsAndValidate(
+      columnId,
+      ownerId,
+      cardId,
+      boardId,
+    );
+
+    if (!card) throw new KanbanException('CardNotFound', 'Card not found');
+
+    return card;
   }
 
   async updateCard(
@@ -380,6 +429,10 @@ export class KanbanService {
             next?.position ?? null,
           );
 
+          this.logger.log(
+            `pickPosition prev=${prev?.position} next=${next?.position} pos=${pos}`,
+          );
+
           if (pos === null) {
             await this.boardsRepository.normalizeColumnPositions(
               toColumnId,
@@ -399,6 +452,16 @@ export class KanbanService {
 
           if (pos === null)
             throw new KanbanException('PositionNotFound', 'Position not found');
+
+          const moved = await this.boardsRepository.moveCard(
+            cardId,
+            toColumnId,
+            pos,
+            tx,
+          );
+
+          if (!moved)
+            throw new KanbanException('CardNotFound', 'Card not found');
 
           return this.boardsRepository.getCardsInColumn(toColumnId, tx);
         },

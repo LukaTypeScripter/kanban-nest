@@ -16,6 +16,7 @@ import {
   UpdateCardType,
 } from '../schemas/card.schema';
 import { Tx } from '@common/types/transaction.type';
+import { KanbanException } from '../kanban.exception';
 
 @Injectable()
 export class BoardsRepository {
@@ -289,5 +290,28 @@ export class BoardsRepository {
     return await (tx ?? this.db).query.kanban_card.findFirst({
       where: eq(schema.kanban_card.id, cardId),
     });
+  }
+
+  async getCardsAndValidate(
+    columnId: number,
+    ownerId: number,
+    cardId: number,
+    boardId: number,
+    tx?: Tx,
+  ): Promise<CardType> {
+    const board = await this.getBoardByIdAndOwnerId(boardId, ownerId);
+
+    if (!board) throw new KanbanException('BoardNotFound', 'Board not found');
+
+    const column = await this.getColumnById(columnId);
+
+    if (!column)
+      throw new KanbanException('ColumnNotFound', 'Column not found');
+
+    const card = await this.getCardById(cardId, tx);
+
+    if (!card) throw new KanbanException('CardNotFound', 'card not found');
+
+    return card;
   }
 }
