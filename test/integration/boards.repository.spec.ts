@@ -247,6 +247,87 @@ describe('BoardsRepository (integration)', () => {
     });
   });
 
+  describe('moveCard', () => {
+    let sourceColumnId: number;
+    let targetColumnId: number;
+
+    beforeEach(async () => {
+      const board = await repo.createBoardWithLimit(ownerId, dummyBoard, limit);
+      if (!board) throw new Error('board setup failed');
+
+      const sourceColumn = await repo.createColumnWithLimit(
+        board.id,
+        { ...dummyColumn, title: 'source', position: 0 },
+        limit,
+      );
+      if (!sourceColumn) throw new Error('source column setup failed');
+      sourceColumnId = sourceColumn.id;
+
+      const targetColumn = await repo.createColumnWithLimit(
+        board.id,
+        { ...dummyColumn, title: 'target', position: 1 },
+        limit,
+      );
+      if (!targetColumn) throw new Error('target column setup failed');
+      targetColumnId = targetColumn.id;
+    });
+
+    it('should move a card to another column with the requested position', async () => {
+      const card = await repo.createCardWithLimit(
+        sourceColumnId,
+        {
+          ...dummyCard,
+          title: 'move me',
+          position: 1000,
+        },
+        limit,
+      );
+      if (!card) throw new Error('card setup failed');
+
+      const moved = await repo.moveCard(card.id, targetColumnId, 2000);
+
+      expect(moved).not.toBeNull();
+      expect(moved?.column_id).toBe(targetColumnId);
+      expect(moved?.position).toBe(2000);
+
+      const sourceCards = await repo.getCardsInColumn(sourceColumnId);
+      const targetCards = await repo.getCardsInColumn(targetColumnId);
+      expect(sourceCards).toEqual([]);
+      expect(targetCards.map((c) => c.id)).toEqual([card.id]);
+    });
+
+    it('should return null when the card does not exist', async () => {
+      const moved = await repo.moveCard(99999, targetColumnId, 1000);
+      expect(moved).toBeNull();
+    });
+
+    it('should roll back a move when the surrounding transaction throws', async () => {
+      const card = await repo.createCardWithLimit(
+        sourceColumnId,
+        {
+          ...dummyCard,
+          title: 'rollback',
+          position: 1000,
+        },
+        limit,
+      );
+      if (!card) throw new Error('card setup failed');
+
+      await expect(
+        repo.transaction.runInTransaction(async (tx) => {
+          await repo.moveCard(card.id, targetColumnId, 2000, tx);
+          throw new Error('boom');
+        }),
+      ).rejects.toThrow('boom');
+
+      const sourceCards = await repo.getCardsInColumn(sourceColumnId);
+      const targetCards = await repo.getCardsInColumn(targetColumnId);
+      expect(sourceCards.map((c) => c.id)).toEqual([card.id]);
+      expect(sourceCards[0].position).toBe(1000);
+      expect(targetCards).toEqual([]);
+    });
+  });
+
   describe('normalizeColumnPositions', () => {
     let boardId: number;
     let columnId: number;
