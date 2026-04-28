@@ -16,6 +16,7 @@ type BoardRepoMock = jest.Mocked<
     | 'createCardWithLimit'
     | 'updateCard'
     | 'deleteCard'
+    | 'normalizeColumnPositions'
   >
 >;
 
@@ -32,6 +33,7 @@ describe('KanbanService', () => {
     createCardWithLimit: jest.fn(),
     updateCard: jest.fn(),
     deleteCard: jest.fn(),
+    normalizeColumnPositions: jest.fn(),
   } as BoardRepoMock;
 
   const userId = 1;

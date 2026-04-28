@@ -246,4 +246,151 @@ describe('BoardsRepository (integration)', () => {
       expect(deleted).toBe(true);
     });
   });
+
+  describe('normalizeColumnPositions', () => {
+    let boardId: number;
+    let columnId: number;
+
+    beforeEach(async () => {
+      const board = await repo.createBoardWithLimit(ownerId, dummyBoard, limit);
+      if (!board) throw new Error('board setup failed');
+      boardId = board.id;
+
+      const column = await repo.createColumnWithLimit(
+        board.id,
+        dummyColumn,
+        limit,
+      );
+      if (!column) throw new Error('column setup failed');
+      columnId = column.id;
+    });
+
+    it('should be a no-op when the column has no cards', async () => {
+      await expect(
+        repo.normalizeColumnPositions(columnId),
+      ).resolves.toBeUndefined();
+
+      const cards = await repo.getCardsInColumn(columnId);
+      expect(cards).toEqual([]);
+    });
+
+    it('should renumber cards to 1000, 2000, 3000 in ascending position order', async () => {
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'A', position: 42 },
+        limit,
+      );
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'B', position: 1500 },
+        limit,
+      );
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'C', position: 9999 },
+        limit,
+      );
+
+      await repo.normalizeColumnPositions(columnId);
+
+      const cards = await repo.getCardsInColumn(columnId);
+      expect(
+        cards.map((c) => ({ title: c.title, position: c.position })),
+      ).toEqual([
+        { title: 'A', position: 1000 },
+        { title: 'B', position: 2000 },
+        { title: 'C', position: 3000 },
+      ]);
+    });
+
+    it('should preserve relative order even when input positions are not multiples of 1000', async () => {
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'first', position: 1 },
+        limit,
+      );
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'second', position: 2 },
+        limit,
+      );
+
+      await repo.normalizeColumnPositions(columnId);
+
+      const cards = await repo.getCardsInColumn(columnId);
+      expect(cards.map((c) => c.title)).toEqual(['first', 'second']);
+      expect(cards.map((c) => c.position)).toEqual([1000, 2000]);
+    });
+
+    it('should not affect cards in other columns', async () => {
+      const otherColumn = await repo.createColumnWithLimit(
+        boardId,
+        { ...dummyColumn, title: 'other', position: 1 },
+        limit,
+      );
+      if (!otherColumn) throw new Error('other column setup failed');
+
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'target', position: 50 },
+        limit,
+      );
+      const untouched = await repo.createCardWithLimit(
+        otherColumn.id,
+        { ...dummyCard, title: 'untouched', position: 7 },
+        limit,
+      );
+      if (!untouched) throw new Error('untouched card setup failed');
+
+      await repo.normalizeColumnPositions(columnId);
+
+      const otherCards = await repo.getCardsInColumn(otherColumn.id);
+      expect(otherCards).toHaveLength(1);
+      expect(otherCards[0].id).toBe(untouched.id);
+      expect(otherCards[0].position).toBe(7);
+    });
+
+    it('should participate in a caller-supplied transaction', async () => {
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'X', position: 11 },
+        limit,
+      );
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'Y', position: 22 },
+        limit,
+      );
+
+      await repo.transaction.runInTransaction(async (tx) => {
+        await repo.normalizeColumnPositions(columnId, tx);
+      });
+
+      const cards = await repo.getCardsInColumn(columnId);
+      expect(cards.map((c) => c.position)).toEqual([1000, 2000]);
+    });
+
+    it('should roll back position changes when the surrounding transaction throws', async () => {
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'keep', position: 11 },
+        limit,
+      );
+      await repo.createCardWithLimit(
+        columnId,
+        { ...dummyCard, title: 'keep2', position: 22 },
+        limit,
+      );
+
+      await expect(
+        repo.transaction.runInTransaction(async (tx) => {
+          await repo.normalizeColumnPositions(columnId, tx);
+          throw new Error('boom');
+        }),
+      ).rejects.toThrow('boom');
+
+      const cards = await repo.getCardsInColumn(columnId);
+      expect(cards.map((c) => c.position)).toEqual([11, 22]);
+    });
+  });
 });

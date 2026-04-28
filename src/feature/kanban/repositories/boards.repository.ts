@@ -258,7 +258,7 @@ export class BoardsRepository {
     return updated ?? null;
   }
 
-  async normalizeColumnPositions(columnId: number, tx: Tx): Promise<void> {
+  async normalizeColumnPositions(columnId: number, tx?: Tx): Promise<void> {
     const cards = await this.getCardsInColumn(columnId, tx);
     if (cards.length === 0) return;
 
